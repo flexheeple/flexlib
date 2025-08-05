@@ -18,12 +18,23 @@ void _FLOG_COMMON_(const flog_level_t level, const char *function, const int lin
     #pragma clang diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
 #endif // __clang__
 
-#define FLOGF(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_FATAL,   __func__, __LINE__, msg, ##__VA_ARGS__)
-#define FLOGE(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_ERROR,   __func__, __LINE__, msg, ##__VA_ARGS__)
-#define FLOGW(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_WARN,    __func__, __LINE__, msg, ##__VA_ARGS__)
-#define FLOGI(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_INFO,    __func__, __LINE__, msg, ##__VA_ARGS__)
-#define FLOGD(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_DEBUG,   __func__, __LINE__, msg, ##__VA_ARGS__)
-#define FLOGV(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_VERBOSE, __func__, __LINE__, msg, ##__VA_ARGS__)
+#ifdef FLOG_DISABLE
+    #define FLOGF(msg, ...)
+    #define FLOGE(msg, ...)
+    #define FLOGW(msg, ...)
+    #define FLOGI(msg, ...)
+    #define FLOGD(msg, ...)
+    #define FLOGV(msg, ...)
+#else
+    #define FLOGF(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_FATAL,   __func__, __LINE__, msg, ##__VA_ARGS__)
+    #define FLOGE(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_ERROR,   __func__, __LINE__, msg, ##__VA_ARGS__)
+    #define FLOGW(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_WARN,    __func__, __LINE__, msg, ##__VA_ARGS__)
+    #define FLOGI(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_INFO,    __func__, __LINE__, msg, ##__VA_ARGS__)
+    #define FLOGD(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_DEBUG,   __func__, __LINE__, msg, ##__VA_ARGS__)
+    #define FLOGV(msg, ...) _FLOG_COMMON_(FLOG_LEVEL_VERBOSE, __func__, __LINE__, msg, ##__VA_ARGS__)
+#endif
+
+#define freturn_defer(val) do { ret = (val); goto defer; } while (0)
 
 #ifdef __clang__
     #pragma clang diagnostic pop
