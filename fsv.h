@@ -3,6 +3,7 @@
 
 #include <ctype.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdbool.h>
 
 /* Usage
@@ -102,11 +103,7 @@ fsv_t fsv_from_cstr(const char *string) {
 }
 
 fsv_t fsv_from_partial_cstr(const char *string, const size_t length) {
-    fsv_t sv = {
-        .data = string,
-        .length = length,
-    };
-    return sv;
+    return (fsv_t) { .length = length, .data = string };
 }
 
 fsv_t fsv_trim(fsv_t sv) {
@@ -216,13 +213,13 @@ bool fsb_need_resize(const fsb_t *sb, size_t item_added) {
 bool fsb_realloc(fsb_t *sb, size_t added_items) {
     if (sb->capacity == 0) sb->capacity = FSB_INITIAL_CAPACITY;
     while (sb->length + added_items > sb->capacity) sb->capacity *= 2;
-    sb->data = FSB_REALLOC(sb->data, sb->capacity*sizeof(char *));
+    sb->data = (char*) FSB_REALLOC(sb->data, sb->capacity*sizeof(char *));
     return sb->data != NULL;
 }
 
 bool fsb_reserve(fsb_t *sb, size_t capacity) {
     if (sb->capacity >= capacity) return true;
-    sb->data = FSB_REALLOC(sb->data, capacity * sizeof(char *));
+    sb->data = (char*) FSB_REALLOC(sb->data, capacity * sizeof(char *));
     return sb->data != NULL;
 }
 
@@ -248,12 +245,18 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     bool ret = true;
     FILE *file = fopen(file_path, "rb");
 
+#ifndef _WIN32
+    long file_size;
+#else
+    long long file_size;
+#endif // _WIN32
+
     if (file == NULL) { ret = false; goto result; }
     if (fseek(file, 0, SEEK_END) < 0) { ret = false; goto result; }
 #ifndef _WIN32
-    long file_size = ftell(file);
+    file_size = ftell(file);
 #else
-    long long file size = _ftelli64(file);
+    file_size = _ftelli64(file);
 #endif // _WIN32
     if (file_size < 0) { ret = false; goto result; }
     if (fseek(file, 0, SEEK_SET) < 0) { ret = false; goto result; }
@@ -300,7 +303,7 @@ fsv_t fsb_to_fsv(const fsb_t *sb) {
 ///////////////////////// End of String Builder /////////////////////////
 
 ///////////////////////// Temporary Buffer /////////////////////////
-#ifdef FSV_DISABLE_TMP_BUFFER
+#ifndef FSV_DISABLE_TMP_BUFFER
 
 #ifndef FSV_TMP_CAPACITY
 #define FSV_TMP_CAPACITY (8*1024)
@@ -348,11 +351,10 @@ char *fsv_tmp_sprintf(const char *format, ...) {
 }
 
 fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
-    fsv_t ret = {
-        .data = fsv_tmp_alloc(sv1.length + sv2.length),
-        .length = sv1.length + sv2.length
-    };
-    FSB_ASSERT(ret.data != NULL && "Extend the size of temporary allocator");
+    size_t length = sv1.length + sv2.length;
+    char *buffer = (char*) fsv_tmp_alloc(length);
+    fsv_t ret = { .length = length, .data = buffer };
+    FSB_ASSERT(buffer != NULL && "Extend the size of temporary allocator");
 
     size_t index = 0;
     for (size_t i = 0; i < sv1.length; ++i) {
