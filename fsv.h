@@ -1,8 +1,6 @@
 #ifndef FLEXHEEPLE_STRING_VIEW_H_
 #define FLEXHEEPLE_STRING_VIEW_H_
 
-#include <ctype.h>
-#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 
@@ -30,6 +28,12 @@ fsv_t fsv_trim_right(fsv_t sv);
 
 int    fsv_index_of(fsv_t sv, char c);
 size_t fsv_strlen(const char *string);
+char   fsv_lower(char c);
+char   fsv_upper(char c);
+bool   fsv_is_space(char c);
+bool   fsv_is_digit(char c);
+bool   fsv_is_character(char c);
+bool   fsv_is_alphanumeric(char c);
 
 bool fsv_eq(fsv_t sv1, fsv_t sv2, bool ignore_case);
 bool fsv_ends_with(fsv_t sv, fsv_t suffix, bool ignore_case);
@@ -38,6 +42,9 @@ bool fsv_starts_with(fsv_t sv, fsv_t prefix, bool ignore_case);
 bool fsv_eq_cstr(fsv_t sv1, const char *string, bool ignore_case);
 bool fsv_ends_with_cstr(fsv_t sv, const char *suffix, bool ignore_case);
 bool fsv_starts_with_cstr(fsv_t sv, const char *prefix, bool ignore_case);
+
+bool fsv_split(fsv_t *sv, fsv_t *out);
+bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out);
 
 ///////////////////////// End of String View /////////////////////////
 
@@ -94,7 +101,6 @@ fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
 #ifdef FSV_IMPLEMENTATION
 
 #include <stdio.h>
-#include <assert.h>
 
 ///////////////////////// String View /////////////////////////
 
@@ -112,7 +118,7 @@ fsv_t fsv_trim(fsv_t sv) {
 
 fsv_t fsv_trim_left(fsv_t sv) {
     size_t i = 0;
-    while (i < sv.length && isspace(sv.data[i])) {
+    while (i < sv.length && fsv_is_space(sv.data[i])) {
         i++;
     }
     return fsv_from_partial_cstr(sv.data + i, sv.length - i);
@@ -120,7 +126,7 @@ fsv_t fsv_trim_left(fsv_t sv) {
 
 fsv_t fsv_trim_right(fsv_t sv) {
     size_t i = 0;
-    while (i < sv.length && isspace(sv.data[sv.length - i - 1])) {
+    while (i < sv.length && fsv_is_space(sv.data[sv.length - i - 1])) {
         i++;
     }
     return fsv_from_partial_cstr(sv.data, sv.length - i);
@@ -142,14 +148,40 @@ size_t fsv_strlen(const char *string) {
     return str - string;
 }
 
+char fsv_lower(char c) {
+    if ('A' <= c && c <= 'Z') return c - 'A';
+    return c;
+}
+
+char fsv_upper(char c) {
+    if ('a' <= c && c <= 'z') return c - ('a' - 'A');
+    return c;
+}
+
+bool fsv_is_space(char c) {
+    return c == ' ' || c == '\n' || c == '\t';
+}
+
+bool fsv_is_digit(char c) {
+    return '0' <= c && c <= '9';
+}
+
+bool fsv_is_character(char c) {
+    return ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z');
+}
+
+bool fsv_is_alphanumeric(char c) {
+    return fsv_is_digit(c) || fsv_is_character(c);
+}
+
 bool fsv_eq(fsv_t sv1, fsv_t sv2, bool ignore_case) {
     if (sv1.length != sv2.length) return false;
 
     char a, b;
     for (size_t i = 0; i < sv1.length; ++i) {
         if (ignore_case) {
-            a = tolower(sv1.data[i]);
-            b = tolower(sv2.data[i]);
+            a = fsv_lower(sv1.data[i]);
+            b = fsv_lower(sv2.data[i]);
         } else {
             a = sv1.data[i];
             b = sv2.data[i];
@@ -182,11 +214,45 @@ bool fsv_ends_with(fsv_t sv, fsv_t suffix, bool ignore_case) {
 bool fsv_ends_with_cstr(fsv_t sv, const char *suffix, bool ignore_case) {
     return fsv_ends_with(sv, fsv_from_cstr(suffix), ignore_case);
 }
+
+bool fsv_split(fsv_t *sv, fsv_t *out) {
+    size_t index = 0;
+    while (true) {
+        if (index >= sv->length) break;
+        if (fsv_is_space(sv->data[index])) break;
+        index++;
+    }
+    if (index == sv->length) return false;
+
+    out->data   = sv->data;
+    out->length = index;
+    sv->data   += index + 1;
+    sv->length -= index + 1;
+
+    return true;
+}
+
+bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
+    size_t index = 0;
+    while (true) {
+        if (index >= sv->length) break;
+        if (sv->data[index] == delim) break;
+        index++;
+    }
+    if (index == sv->length) return false;
+
+    out->data   = sv->data;
+    out->length = index;
+    sv->data   += index + 1;
+    sv->length -= index + 1;
+
+    return true;
+}
+
 ///////////////////////// End of String View /////////////////////////
 
 ///////////////////////// String Builder /////////////////////////
 
-#include <stdio.h>
 #include <stdarg.h>
 
 #ifndef FSB_REALLOC
@@ -288,12 +354,10 @@ int fsb_append_strf(fsb_t *sb, const char *fmt, ...) {
 }
 
 void fsb_free(fsb_t *sb) {
-    if (sb->data != NULL) {
-        FSB_FREE(sb->data);
-        sb->length   = 0;
-        sb->capacity = 0;
-        sb->data     = NULL;
-    }
+    if (sb->data != NULL) FSB_FREE(sb->data);
+    sb->length   = 0;
+    sb->capacity = 0;
+    sb->data     = NULL;
 }
 
 fsv_t fsb_to_fsv(const fsb_t *sb) {
@@ -357,11 +421,15 @@ fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
     FSB_ASSERT(buffer != NULL && "Extend the size of temporary allocator");
 
     size_t index = 0;
-    for (size_t i = 0; i < sv1.length; ++i) {
-        buffer[index++] = sv1.data[i];
+    if (sv1.length > 0) {
+        for (size_t i = 0; i < sv1.length; ++i) {
+            buffer[index++] = sv1.data[i];
+        }
     }
-    for (size_t i = 0; i < sv2.length; ++i) {
-        buffer[index++] = sv2.data[i];
+    if (sv2.length > 0) {
+        for (size_t i = 0; i < sv2.length; ++i) {
+            buffer[index++] = sv2.data[i];
+        }
     }
 
     return ret;
