@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 /* Usage
  *  fsv string_view = ...;
@@ -388,24 +389,40 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
 
     if (file == NULL) {
         ret = false;
+        FSV_LOGE("Could not fopen file `%s`. %s", file_path, strerror(errno));
         goto result;
     }
-    if (fseek(file, 0, SEEK_END) < 0) { ret = false; goto result; }
+    if (fseek(file, 0, SEEK_END) < 0) {
+        ret = false;
+        FSV_LOGE("Could not fseek to end of file `%s`. %s", file_path, strerror(errno));
+        goto result;
+    }
 #ifndef _WIN32
     file_size = ftell(file);
 #else
     file_size = _ftelli64(file);
 #endif // _WIN32
-    if (file_size < 0) { ret = false; goto result; }
-    if (fseek(file, 0, SEEK_SET) < 0) { ret = false; goto result; }
+    if (file_size < 0) {
+        ret = false;
+        FSV_LOGE("Could not ftell file `%s`. %s", file_path, strerror(errno));
+        goto result;
+    }
+    if (fseek(file, 0, SEEK_SET) < 0) {
+        ret = false;
+        FSV_LOGE("Could not fseek to set of file `%s`. %s", file_path, strerror(errno));
+        goto result;
+    }
 
     fda_reserve(sb, sb->length + file_size);
     fread(sb->datas + sb->length, file_size, 1, file);
-    if (ferror(file)) { ret = false; goto result; }
+    if (ferror(file)) {
+        ret = false;
+        FSV_LOGE("Could not fread file `%s`. %s", file_path, strerror(errno));
+        goto result;
+    }
     sb->length += file_size;
 
 result:
-    if (ret != true) FSV_LOGE("Could not read file `%s`. %s", file_path, strerror(errno));
     if (file != NULL) fclose(file);
     return ret;
 }
