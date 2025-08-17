@@ -77,7 +77,7 @@ typedef struct f_file_path {
 #        define FSB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__ ((format (printf, STRING_INDEX, FIRST_TO_CHECK)))
 #    endif // __MINGW_PRINTF_FORMAT
 #else
-//   TODO: implement FSV_PRINTF_FORMAT for MSVC
+//   TODO: implement FSB_PRINTF_FORMAT for MSVC
 #    define FSB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
 #endif
 
@@ -108,7 +108,26 @@ fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
 
 ///////////////////////// End of Temporary Buffer /////////////////////////
 
+///////////////////////// Logging for debug /////////////////////////
+typedef enum {
+    FSV_LOG_INFO,
+    FSV_LOG_ERROR
+} fsv_log_level_t;
+
+void fsv_log(const fsv_log_level_t level, const char *msg, ...) FSB_PRINTF_FORMAT(2, 3);
+
+#ifdef FSV_ENABLE_DEBUG
+#    define FSV_LOGI(msg, ...) fsv_log(FSV_LOG_INFO, msg, ##__VA_ARGS__)
+#    define FSV_LOGE(msg, ...) fsv_log(FSV_LOG_ERROR, msg, ##__VA_ARGS__)
+#else
+#    define FSV_LOGI(msg, ...)
+#    define FSV_LOGE(msg, ...)
+#endif // FSV_ENABLE_DEBUG
+
+///////////////////////// End of Logging for debug /////////////////////////
+
 ///////////////////////// Implementation /////////////////////////
+
 #ifdef FSV_IMPLEMENTATION
 
 #include <stdio.h>
@@ -282,9 +301,13 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
 
 #include <stdarg.h>
 
-#include <dirent.h>   // fsb_read_entire_dir
-#include <errno.h>    // fsb_read_entire_dir
-#include <sys/stat.h> // fsb_read_entire_dir
+#include <dirent.h>
+#include <errno.h>
+#include <sys/stat.h>
+
+#ifdef FSV_ENABLE_DEBUG
+#    include <string.h>
+#endif // FSV_ENABLE_DEBUG
 
 #ifndef FSB_REALLOC
 #    include <stdlib.h>
@@ -363,7 +386,10 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     long long file_size = 0;
 #endif // _WIN32
 
-    if (file == NULL) { ret = false; goto result; }
+    if (file == NULL) {
+        ret = false;
+        goto result;
+    }
     if (fseek(file, 0, SEEK_END) < 0) { ret = false; goto result; }
 #ifndef _WIN32
     file_size = ftell(file);
@@ -379,22 +405,26 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     sb->length += file_size;
 
 result:
+    if (ret != true) FSV_LOGE("Could not read file `%s`. %s", file_path, strerror(errno));
     if (file != NULL) fclose(file);
     return ret;
 }
 
 bool fsb_read_entire_dir(const char *parent, ffp_t *children, bool recursive) {
     bool ret             = true;
-    DIR *dir             = NULL;
     struct dirent *ent   = NULL;
     struct stat ent_stat = {};
     fsv_t curr_ent       = {};
     ffe_t file           = {};
     size_t save_point    = fsv_tmp_save_point();
     fsv_t full_path      = fsv_from_cstr(parent);
+    DIR *dir             = opendir(parent);
 
-    dir = opendir(parent);
-    if (dir == NULL) { ret = false; goto result; }
+    if (dir == NULL) {
+        ret = false;
+        FSV_LOGE("Could not open folder `%s`. %s", parent, strerror(errno));
+        goto result;
+    }
     if (!fsv_ends_with_cstr(full_path, "/", false)) {
         full_path = fsv_tmp_concat_cstr(full_path, "/");
     }
@@ -411,7 +441,12 @@ bool fsb_read_entire_dir(const char *parent, ffp_t *children, bool recursive) {
 
         fsv_tmp_rewind(save_point);
         curr_ent = fsv_tmp_concat_cstr(full_path, ent->d_name);
-        if (lstat(curr_ent.datas, &ent_stat) < 0) { ret = false; goto result; }
+        if (lstat(curr_ent.datas, &ent_stat) < 0) {
+            ret = false;
+            FSV_LOGE("Could not lstat entity `" fsv_fmt "`. %s",
+                    fsv_arg(curr_ent), strerror(errno));
+            goto result;
+        }
         file.is_dir = S_ISDIR(ent_stat.st_mode);
 
         if (!recursive) {
@@ -423,16 +458,23 @@ bool fsb_read_entire_dir(const char *parent, ffp_t *children, bool recursive) {
                 fda_append(children, file);
             } else {
                 if (!fsb_read_entire_dir(curr_ent.datas, children, recursive)) {
-                    ret = false; goto result;
+                    FSV_LOGE("Could not list contents of subdir `" fsv_fmt "`. %s",
+                            fsv_arg(curr_ent), strerror(errno));
+                    ent = readdir(dir);
+                    continue;
                 }
             }
         }
         ent = readdir(dir);
     }
 
-    if (errno != 0) { ret = false; goto result; }
+    if (errno != 0) {
+        ret = false;
+        FSV_LOGE("Could not read directory `%s`. %s", parent, strerror(errno));
+        goto result;
+    }
 result:
-    (void) recursive;
+    fsv_tmp_rewind(save_point);
     if (dir) closedir(dir);
     return ret;
 }
@@ -499,7 +541,10 @@ static size_t fsv_tmp_size = 0;
 void *fsv_tmp_alloc(size_t bytes) {
     size_t word_size = sizeof(uintptr_t);
     size_t size = (bytes + word_size - 1)/word_size*word_size;
-    if (fsv_tmp_size + size > FSV_TMP_CAPACITY) return NULL;
+    if (fsv_tmp_size + size > FSV_TMP_CAPACITY) {
+        FSB_ASSERT(false && "Extend the size of temporary allocator");
+        return NULL;
+    }
     void *ret = &fsv_tmp_buffer[fsv_tmp_size];
     fsv_tmp_size += size;
     return ret;
@@ -520,7 +565,6 @@ void fsv_tmp_rewind(size_t checkpoint) {
 char *fsv_tmp_strdup(const char *cstr) {
     size_t len = fsv_strlen(cstr);
     char *ret = (char*)fsv_tmp_alloc(len + 1);
-    FSB_ASSERT(ret != NULL && "Extend the size of temporary allocator");
 
     for (size_t i = 0; i < len; ++i) {
         ret[i] = cstr[i];
@@ -538,7 +582,6 @@ char *fsv_tmp_sprintf(const char *format, ...) {
 
     FSB_ASSERT(n >= 0);
     char *ret = (char*) fsv_tmp_alloc(n + 1);
-    FSB_ASSERT(ret != NULL && "Extend the size of temporary allocator");
 
     va_start(args, format);
     vsnprintf(ret, n + 1, format, args);
@@ -551,7 +594,6 @@ fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
     size_t length = sv1.length + sv2.length;
     char *buffer = (char*) fsv_tmp_alloc(length + 1);
     fsv_t ret = { .length = length, .datas = buffer };
-    FSB_ASSERT(buffer != NULL && "Extend the size of temporary allocator");
 
     size_t index = 0;
     if (sv1.length > 0) {
@@ -575,6 +617,22 @@ fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str) {
 
 #endif // FSV_DISABLE_TMP_BUFFER
 ///////////////////////// End of Temporary Buffer /////////////////////////
+
+void fsv_log(const fsv_log_level_t level, const char *msg, ...) {
+    FILE *output = NULL;
+    va_list arg = {};
+    char *buffer = fsv_tmp_buffer + fsv_tmp_save_point();
+
+    if (level == FSV_LOG_INFO) output = stdout;
+    else if (level == FSV_LOG_ERROR) output = stderr;
+    FSB_ASSERT(output != NULL);
+
+    va_start(arg, msg);
+    vsnprintf(buffer, FSV_TMP_CAPACITY, msg, arg);
+    va_end(arg);
+
+    fprintf(output, "%s\n", buffer);
+}
 
 #endif // FSV_IMPLEMENTATION
 ///////////////////////// End of Implementation /////////////////////////
