@@ -1,6 +1,17 @@
 #ifndef FLEXHEEPLE_LOG_H_
 #define FLEXHEEPLE_LOG_H_
 
+#include <stdio.h>
+#include <stdarg.h>
+
+#ifndef FLOG_DISABLE_TIMESTAMP
+#include <string.h>
+#include <errno.h>
+#include <time.h>
+
+#define FLOG_TIMESTAMP_BUFFER_SIZE (size_t) (31)
+#endif // FLOG_DISABLE_TIMESTAMP
+
 typedef enum {
     FLOG_LEVEL_VERBOSE,
     FLOG_LEVEL_DEBUG,
@@ -49,17 +60,6 @@ void _FLOG_COMMON_(const flog_level_t level, const char *function, const int lin
 #endif // FLOG_LEVEL
 
 #ifdef FLOG_IMPLEMENTATION
-
-#include <stdio.h>
-#include <stdarg.h>
-
-#ifndef FLOG_DISABLE_TIMESTAMP
-#include <string.h>
-#include <errno.h>
-#include <time.h>
-
-#define FLOG_TIMESTAMP_BUFFER_SIZE (size_t) (31)
-#endif
 
 #ifndef FLOG_BUFFER_SIZE
 #define FLOG_BUFFER_SIZE (size_t) (1024)

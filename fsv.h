@@ -91,6 +91,57 @@ bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *lef
 ///////////////////////// End of String View /////////////////////////
 
 ///////////////////////// String Builder /////////////////////////
+#define FSB_INITIAL_CAPACITY (2)
+
+#undef  fda_realloc
+#define fda_realloc(da, item_added)                                                    \
+    do {                                                                               \
+        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }            \
+        while ((da)->size + (item_added) > (da)->capacity) {                           \
+            (da)->capacity *= 2;                                                       \
+        }                                                                              \
+        (da)->datas = FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
+    } while (0)
+
+#undef  fda_append
+#define fda_append(da, data)                      \
+    do {                                          \
+        if ((da)->size + 1 >= (da)->capacity) {   \
+            fda_realloc((da), 1);                 \
+        }                                         \
+        (da)->datas[(da)->size++] = data;         \
+    } while (0)
+
+#undef  fda_append_many
+#define fda_append_many(da, _datas, size)              \
+    do {                                               \
+        if ((da)->size + (size) >= (da)->capacity) {   \
+            fda_realloc((da), (size));                 \
+        }                                              \
+        for (int i = 0; i < (size); ++i) {             \
+            (da)->datas[(da)->size++] = (_datas)[i];   \
+        }                                              \
+    } while (0)
+
+#undef  fda_reserve
+#define fda_reserve(da, cap)                                                  \
+    do {                                                                      \
+        if ((da)->capacity >= (cap)) { break; }                               \
+        (da)->datas = FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
+    } while (0)
+
+#undef fda_free
+#define fda_free(da)               \
+    do {                           \
+        if ((da)->datas != NULL) { \
+            FSV_FREE((da)->datas); \
+        }                          \
+        (da)->datas    = NULL;     \
+        (da)->size     = 0;        \
+        (da)->capacity = 0;        \
+    } while (0)
 
 typedef struct fstring_builder {
     union { size_t size; size_t length; };
@@ -408,57 +459,6 @@ bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *lef
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
-#define FSB_INITIAL_CAPACITY (2)
-
-#undef  fda_realloc
-#define fda_realloc(da, item_added)                                                    \
-    do {                                                                               \
-        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }            \
-        while ((da)->size + (item_added) > (da)->capacity) {                           \
-            (da)->capacity *= 2;                                                       \
-        }                                                                              \
-        (da)->datas = FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
-    } while (0)
-
-#undef  fda_append
-#define fda_append(da, data)                      \
-    do {                                          \
-        if ((da)->size + 1 >= (da)->capacity) {   \
-            fda_realloc((da), 1);                 \
-        }                                         \
-        (da)->datas[(da)->size++] = data;         \
-    } while (0)
-
-#undef  fda_append_many
-#define fda_append_many(da, _datas, size)              \
-    do {                                               \
-        if ((da)->size + (size) >= (da)->capacity) {   \
-            fda_realloc((da), (size));                 \
-        }                                              \
-        for (int i = 0; i < (size); ++i) {             \
-            (da)->datas[(da)->size++] = (_datas)[i];   \
-        }                                              \
-    } while (0)
-
-#undef  fda_reserve
-#define fda_reserve(da, cap)                                                  \
-    do {                                                                      \
-        if ((da)->capacity >= (cap)) { break; }                               \
-        (da)->datas = FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
-    } while (0)
-
-#undef fda_free
-#define fda_free(da)               \
-    do {                           \
-        if ((da)->datas != NULL) { \
-            FSV_FREE((da)->datas); \
-        }                          \
-        (da)->datas    = NULL;     \
-        (da)->size     = 0;        \
-        (da)->capacity = 0;        \
-    } while (0)
 
 bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     bool ret = true;
