@@ -22,20 +22,28 @@ bool fcsv_get_next_column(fsv_t *row, fsv_t *column);
 bool fcsv_get_next_row(fcsv_t *csv, fcsv_row_t *out);
 
 #if 0
-// Example:
+///////////////////////// Example /////////////////////////
+
+#include <stdio.h>
+#define FSV_IMPLEMENTATION
+#define FCSV_IMPLEMENTATION
+#include "fcsv.h"
+
 int main(void) {
     fcsv_t csv = {0};
     const char *file_path = "../fcsv-parser/cashew.csv";
     if (!fcsv_open(&csv, file_path, true)) return 1;
 
-    fcsv_row_t row;
-    while (fcsv_get_next_row(&csv, &row)) {
-        row = &csv.rows;
-        for (size_t i = 0; i < row->size; ++i) {
-            if (row->datas[i].length != 0 && row->datas[i].datas != NULL) {
-                fprintf(stdout, ", " fsv_fmt, fsv_arg(row->datas[i]));
+    // `fcsv_open` will parse the first line and the rewind back to
+    // the beginning of the file. So if you want to skip the header,
+    // you need to call `fcsv_get_next_row`
+    fcsv_row_t column;
+    while (fcsv_get_next_row(&csv, &column)) {
+        for (size_t i = 0; i < column.size; ++i) {
+            if (column.datas[i].length != 0 && column.datas[i].datas != NULL) {
+                fprintf(stdout, fsv_fmt ", ", fsv_arg(column.datas[i]));
             } else {
-                fprintf(stdout, ", (null)");
+                fprintf(stdout, "(null), ");
             }
         }
         fprintf(stdout, "\n");
@@ -97,6 +105,8 @@ bool fcsv_get_next_row(fcsv_t *csv, fcsv_row_t *out) {
 
 void fcsv_close(fcsv_t *csv) {
     fsb_free(&csv->content);
+    fda_free(&csv->header);
+    fda_free(&csv->rows);
 }
 
 #endif // FCSV_IMPLEMENTATION
