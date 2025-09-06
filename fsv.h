@@ -13,6 +13,38 @@
 #define fsv_fmt     "%.*s"
 #define fsv_arg(sv) (int) (sv).length, (sv).datas
 
+#ifdef FSV_ENABLE_DEBUG
+#    include <string.h>
+#endif // FSV_ENABLE_DEBUG
+
+#ifndef FSV_REALLOC
+#    include <stdlib.h>
+#    define FSV_REALLOC realloc
+#endif // FSV_REALLOC
+
+#ifndef FSV_FREE
+#    include <stdlib.h>
+#    define FSV_FREE free
+#endif // FSV_FREE
+
+#ifndef FSV_ASSERT
+#    include <assert.h>
+#    define FSV_ASSERT assert
+#endif // FSV_ASSERT
+
+// Stolen from Tsoding nob.h: https://github.com/tsoding/nob.h
+#if defined(__GNUC__) || defined(__clang__)
+//   https://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Function-Attributes.html
+#    ifdef __MINGW_PRINTF_FORMAT
+#        define FSV_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__ ((format (__MINGW_PRINTF_FORMAT, STRING_INDEX, FIRST_TO_CHECK)))
+#    else
+#        define FSV_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__ ((format (printf, STRING_INDEX, FIRST_TO_CHECK)))
+#    endif // __MINGW_PRINTF_FORMAT
+#else
+//   TODO: implement FSV_PRINTF_FORMAT for MSVC
+#    define FSV_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
+#endif
+
 ///////////////////////// String View /////////////////////////
 
 typedef struct fstring_view {
@@ -47,6 +79,14 @@ bool fsv_starts_with_cstr(fsv_t sv, const char *prefix, bool ignore_case);
 
 bool fsv_split(fsv_t *sv, fsv_t *out);
 bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out);
+bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out);
+bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *out);
+// Example:
+// fsv_split_by_pair("something [Not] correct", "[]", middle, left);
+// --> right  = " correct"
+// --> middle = "Not"
+// --> left   = "something "
+bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left);
 
 ///////////////////////// End of String View /////////////////////////
 
@@ -69,22 +109,9 @@ typedef struct f_file_path {
     ffe_t *datas;
 } ffp_t;
 
-// Stolen from Tsoding nob.h: https://github.com/tsoding/nob.h
-#if defined(__GNUC__) || defined(__clang__)
-//   https://gcc.gnu.org/onlinedocs/gcc-4.7.2/gcc/Function-Attributes.html
-#    ifdef __MINGW_PRINTF_FORMAT
-#        define FSB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__ ((format (__MINGW_PRINTF_FORMAT, STRING_INDEX, FIRST_TO_CHECK)))
-#    else
-#        define FSB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK) __attribute__ ((format (printf, STRING_INDEX, FIRST_TO_CHECK)))
-#    endif // __MINGW_PRINTF_FORMAT
-#else
-//   TODO: implement FSB_PRINTF_FORMAT for MSVC
-#    define FSB_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
-#endif
-
 bool fsb_read_entire_file(const char *file_path, fsb_t *sb);
 bool fsb_read_entire_dir(const char *parent, ffp_t *children, bool recursive);
-int  fsb_append_strf(fsb_t *sb, const char *fmt, ...) FSB_PRINTF_FORMAT(2, 3);
+int  fsb_append_strf(fsb_t *sb, const char *fmt, ...) FSV_PRINTF_FORMAT(2, 3);
 void fsb_free(fsb_t *sb);
 void ffp_free(ffp_t *fp);
 
@@ -101,7 +128,7 @@ void   fsv_tmp_reset(void);
 size_t fsv_tmp_save_point(void);
 void   fsv_tmp_rewind(size_t checkpoint);
 char  *fsv_tmp_strdup(const char *cstr);
-char  *fsv_tmp_sprintf(const char *format, ...) FSB_PRINTF_FORMAT(1, 2);
+char  *fsv_tmp_sprintf(const char *format, ...) FSV_PRINTF_FORMAT(1, 2);
 fsv_t  fsv_tmp_concat(fsv_t sv1, fsv_t sv2);
 fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
 
@@ -115,7 +142,7 @@ typedef enum {
     FSV_LOG_ERROR
 } fsv_log_level_t;
 
-void fsv_log(const fsv_log_level_t level, const char *msg, ...) FSB_PRINTF_FORMAT(2, 3);
+void fsv_log(const fsv_log_level_t level, const char *msg, ...) FSV_PRINTF_FORMAT(2, 3);
 
 #ifdef FSV_ENABLE_DEBUG
 #    define FSV_LOGI(msg, ...) fsv_log(FSV_LOG_INFO, msg, ##__VA_ARGS__)
@@ -296,6 +323,82 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
     return true;
 }
 
+bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out) {
+    if (sv->length == 0 || sv->datas == NULL) return false;
+
+    size_t index = 0;
+    fsv_t window = fsv_from_partial_cstr(sv->datas, delim.length);
+    while (true) {
+        if (index + delim.length >= sv->length) break;
+        if (fsv_eq(delim, window, ignore_case)) break;
+        index++;
+        window.datas++;
+    }
+
+    if (index + delim.length == sv->length) {
+        out->datas  = sv->datas;
+        out->length = sv->length;
+        sv->datas   = NULL;
+        sv->length  = 0;
+    } else {
+        out->datas  = sv->datas;
+        out->length = index;
+        sv->datas  += index + delim.length;
+        sv->length -= index + delim.length;
+    }
+    return true;
+}
+
+bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *out) {
+    return fsv_split_by_sv(sv, fsv_from_cstr(delim), ignore_case, out);
+}
+
+bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left) {
+    FSV_ASSERT(fsv_strlen(pair) == 2);
+    if (right->length == 0 || right->datas == NULL) return false;
+
+    size_t first  = 0;
+    size_t second = 0;
+    fsv_t *sv = right;
+    while (true) {
+        if (first >= right->length) break;
+        if (right->datas[first] == pair[0]) break;
+        first++;
+    }
+    if (first == right->length) {
+        left->datas    = sv->datas;
+        left->length   = sv->length;
+        right->datas   = NULL;
+        right->length  = 0;
+        middle->datas  = NULL;
+        middle->length = 0;
+        return true;
+    }
+
+    second = first;
+    while (true) {
+        if (second >= right->length) break;
+        if (right->datas[second] == pair[1]) break;
+        second++;
+    }
+    if (second == right->length) {
+        left->datas    = sv->datas;
+        left->length   = first;
+        middle->datas  = sv->datas + first + 1;
+        middle->length = second    - first - 1;
+        right->datas   = NULL;
+        right->length  = 0;
+    } else {
+        left->datas    = sv->datas;
+        left->length   = first;
+        middle->datas  = sv->datas  + first  + 1;
+        middle->length = second     - first  - 1;
+        right->datas   = sv->datas  + second + 1;
+        right->length  = sv->length - second - 1;
+    }
+    return true;
+}
+
 ///////////////////////// End of String View /////////////////////////
 
 ///////////////////////// String Builder /////////////////////////
@@ -305,26 +408,6 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
 #include <dirent.h>
 #include <errno.h>
 #include <sys/stat.h>
-
-#ifdef FSV_ENABLE_DEBUG
-#    include <string.h>
-#endif // FSV_ENABLE_DEBUG
-
-#ifndef FSB_REALLOC
-#    include <stdlib.h>
-#    define FSB_REALLOC realloc
-#endif // FSB_REALLOC
-
-#ifndef FSB_FREE
-#    include <stdlib.h>
-#    define FSB_FREE free
-#endif // FSB_FREE
-
-#ifndef FSB_ASSERT
-#    include <assert.h>
-#    define FSB_ASSERT assert
-#endif // FSB_ASSERT
-
 #define FSB_INITIAL_CAPACITY (2)
 
 #undef  fda_realloc
@@ -334,8 +417,8 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
         while ((da)->size + (item_added) > (da)->capacity) {                           \
             (da)->capacity *= 2;                                                       \
         }                                                                              \
-        (da)->datas = FSB_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSB_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
+        (da)->datas = FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
     } while (0)
 
 #undef  fda_append
@@ -362,15 +445,15 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
 #define fda_reserve(da, cap)                                                  \
     do {                                                                      \
         if ((da)->capacity >= (cap)) { break; }                               \
-        (da)->datas = FSB_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSB_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
+        (da)->datas = FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
     } while (0)
 
 #undef fda_free
 #define fda_free(da)               \
     do {                           \
         if ((da)->datas != NULL) { \
-            FSB_FREE((da)->datas); \
+            FSV_FREE((da)->datas); \
         }                          \
         (da)->datas    = NULL;     \
         (da)->size     = 0;        \
@@ -513,7 +596,7 @@ int fsb_append_strf(fsb_t *sb, const char *fmt, ...) {
 }
 
 void fsb_free(fsb_t *sb) {
-    if (sb->datas != NULL) FSB_FREE(sb->datas);
+    if (sb->datas != NULL) FSV_FREE(sb->datas);
     sb->length   = 0;
     sb->capacity = 0;
     sb->datas     = NULL;
@@ -536,10 +619,14 @@ fsv_t fsv_from_sb(const fsb_t sb) {
 
 fsb_t fsb_from_sv(const fsv_t sv) {
     fsb_t ret = {};
-    fda_reserve(&ret, sv.length);
+    fda_reserve(&ret, sv.length + 1);
     for (size_t i = 0; i < sv.length; ++i) {
         fda_append(&ret, sv.datas[i]);
     }
+    // Set null-terminated for passing into
+    // `fsb_read_entire_dir` or `fsb_read_entire_file`
+    // while doesn't make `fsv_eq` produce wrong result
+    ret.datas[sv.length] = '\0';
     return ret;
 }
 
@@ -559,7 +646,7 @@ void *fsv_tmp_alloc(size_t bytes) {
     size_t word_size = sizeof(uintptr_t);
     size_t size = (bytes + word_size - 1)/word_size*word_size;
     if (fsv_tmp_size + size > FSV_TMP_CAPACITY) {
-        FSB_ASSERT(false && "Extend the size of temporary allocator");
+        FSV_ASSERT(false && "Extend the size of temporary allocator");
         return NULL;
     }
     void *ret = &fsv_tmp_buffer[fsv_tmp_size];
@@ -597,7 +684,7 @@ char *fsv_tmp_sprintf(const char *format, ...) {
     int n = vsnprintf(NULL, 0, format, args);
     va_end(args);
 
-    FSB_ASSERT(n >= 0);
+    FSV_ASSERT(n >= 0);
     char *ret = (char*) fsv_tmp_alloc(n + 1);
 
     va_start(args, format);
@@ -642,7 +729,7 @@ void fsv_log(const fsv_log_level_t level, const char *msg, ...) {
 
     if (level == FSV_LOG_INFO) output = stdout;
     else if (level == FSV_LOG_ERROR) output = stderr;
-    FSB_ASSERT(output != NULL);
+    FSV_ASSERT(output != NULL);
 
     va_start(arg, msg);
     vsnprintf(buffer, FSV_TMP_CAPACITY, msg, arg);
