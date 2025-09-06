@@ -5,6 +5,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+// [TODO]: make unit test for each api
+
 /* Usage
  *  fsv string_view = ...;
  *  printf("string_view = " fsv_fmt "\n", fsv_arg(string_view));
@@ -87,6 +89,14 @@ bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *ou
 // --> middle = "Not"
 // --> left   = "something "
 bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left);
+
+int64_t fsv_to_int64_from_base(fsv_t sv, int base);
+int64_t fsv_to_int64_from_hex(fsv_t sv);
+int64_t fsv_to_int64_from_dec(fsv_t sv);
+int64_t fsv_to_int64_from_oct(fsv_t sv);
+int64_t fsv_to_int64_from_bin(fsv_t sv);
+int64_t fsv_to_int64(fsv_t sv);
+bool    fsv_to_bool(fsv_t sv);
 
 ///////////////////////// End of String View /////////////////////////
 
@@ -262,7 +272,7 @@ size_t fsv_strlen(const char *string) {
 }
 
 char fsv_lower(char c) {
-    if ('A' <= c && c <= 'Z') return c - 'A';
+    if ('A' <= c && c <= 'Z') return c + ('a' - 'A');
     return c;
 }
 
@@ -448,6 +458,87 @@ bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *lef
         right->length  = sv->length - second - 1;
     }
     return true;
+}
+
+int64_t fsv_to_int64_from_base(fsv_t sv, int base) {
+    char c;
+    int64_t b = 1;
+    int64_t ret = 0;
+    bool negative = false;
+
+    if (base != 2 && base != 8 && base != 10 && base != 16) {
+        FSV_LOGE("Unsupported base: %d, Only supports binary, octal, decimal, hexa-decimal", base);
+        return ret;
+    }
+
+    if (sv.datas[0] == '-') {
+        negative = true;
+        sv.datas  += 1;
+        sv.length -= 1;
+    }
+
+    if ((base ==  2 && fsv_starts_with_cstr(sv, "0b", true)) ||
+        (base ==  8 && fsv_starts_with_cstr(sv, "0o", true)) ||
+        (base == 16 && fsv_starts_with_cstr(sv, "0x", true))) {
+        sv.datas  += 2;
+        sv.length -= 2;
+    }
+
+    for (int i = sv.length - 1; i >= 0; i--) {
+        c = fsv_lower(sv.datas[i]);
+        if ((base ==  2 && ( c != '0' && c != '1')) ||
+            (base ==  8 && ( c  < '0' && c  > '7')) ||
+            (base == 16 && ((c  < 'a' || c  > 'f') && !fsv_is_digit(c)))) {
+            goto result;
+        }
+        if (base == 16 && 'a' <= c && c <= 'f') {
+            ret += (c - 'a' + 10)*b;
+        } else {
+            ret += (c - '0')*b;
+        }
+        b *= base;
+    }
+
+result:
+    if (negative) ret *= -1;
+    return ret;
+}
+
+int64_t fsv_to_int64_from_hex(fsv_t sv) {
+    return fsv_to_int64_from_base(sv, 16);
+}
+
+int64_t fsv_to_int64_from_dec(fsv_t sv) {
+    return fsv_to_int64_from_base(sv, 10);
+}
+
+int64_t fsv_to_int64_from_oct(fsv_t sv) {
+    return fsv_to_int64_from_base(sv, 8);
+}
+
+int64_t fsv_to_int64_from_bin(fsv_t sv) {
+    return fsv_to_int64_from_base(sv, 2);
+}
+
+int64_t fsv_to_int64(fsv_t sv) {
+    if (fsv_starts_with_cstr(sv, "0x", true) || fsv_starts_with_cstr(sv, "-0x", true)) {
+        return fsv_to_int64_from_hex(sv);
+    } else if (fsv_starts_with_cstr(sv, "0b", true) || fsv_starts_with_cstr(sv, "-0b", true)) {
+        return fsv_to_int64_from_bin(sv);
+    } else if (fsv_starts_with_cstr(sv, "0o", true) || fsv_starts_with_cstr(sv, "-0o", true)) {
+        return fsv_to_int64_from_oct(sv);
+    } else {
+        return fsv_to_int64_from_dec(sv);
+    }
+}
+
+bool fsv_to_bool(fsv_t sv) {
+    if (fsv_eq_cstr(sv, "false", true)) {
+        return false;
+    } else if (fsv_eq_cstr(sv, "true", true)) {
+        return true;
+    }
+    return false;
 }
 
 ///////////////////////// End of String View /////////////////////////
