@@ -189,6 +189,7 @@ void   fsv_tmp_reset(void);
 size_t fsv_tmp_save_point(void);
 void   fsv_tmp_rewind(size_t checkpoint);
 char  *fsv_tmp_strdup(const char *cstr);
+char  *fsv_tmp_sv_to_cstr(fsv_t sv);
 char  *fsv_tmp_sprintf(const char *format, ...) FSV_PRINTF_FORMAT(1, 2);
 fsv_t  fsv_tmp_concat(fsv_t sv1, fsv_t sv2);
 fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
@@ -436,7 +437,7 @@ bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *lef
         return true;
     }
 
-    second = first;
+    second = first + 1;
     while (true) {
         if (second >= right->length) break;
         if (right->datas[second] == pair[1]) break;
@@ -760,7 +761,6 @@ void fsv_tmp_rewind(size_t checkpoint) {
 char *fsv_tmp_strdup(const char *cstr) {
     size_t len = fsv_strlen(cstr);
     char *ret = (char*)fsv_tmp_alloc(len + 1);
-
     for (size_t i = 0; i < len; ++i) {
         ret[i] = cstr[i];
     }
@@ -781,6 +781,17 @@ char *fsv_tmp_sprintf(const char *format, ...) {
     va_start(args, format);
     vsnprintf(ret, n + 1, format, args);
     va_end(args);
+
+    return ret;
+}
+
+char *fsv_tmp_sv_to_cstr(fsv_t sv) {
+    char *ret = (char*)fsv_tmp_alloc(sv.length + 1);
+
+    for (size_t i = 0; i < sv.length; ++i) {
+        ret[i] = sv.datas[i];
+    }
+    ret[sv.length] = '\0';
 
     return ret;
 }
