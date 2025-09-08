@@ -82,13 +82,17 @@ bool fcsv_open(fcsv_t *csv, const char *file_path, bool have_header) {
 }
 
 bool fcsv_get_next_column(fsv_t *row, fsv_t *column) {
-    fsv_t unused = {};
     if (fsv_starts_with_cstr(*row, "\"", true)) {
-        if (!fsv_split_by_pair(row, "\"\"", &unused, column)) return false;
+        fsv_t unused = {};
+        if (!fsv_split_by_pair(row, "\"\"", column, &unused)) return false;
+        if (row->length > 0) {
+            // Remove ','
+            row->datas++;
+            row->length--;
+        }
     } else {
         if (!fsv_split_by_delim(row, ',', column)) return false;
     }
-    (void) unused;
     return true;
 }
 
