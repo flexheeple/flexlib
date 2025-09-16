@@ -193,6 +193,10 @@ char  *fsv_tmp_sv_to_cstr(fsv_t sv);
 char  *fsv_tmp_sprintf(const char *format, ...) FSV_PRINTF_FORMAT(1, 2);
 fsv_t  fsv_tmp_concat(fsv_t sv1, fsv_t sv2);
 fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
+// Same as `fsv_tmp_concat` and `fsv_tmp_concat_cstr`
+// But memory allocated in here is continuous
+fsv_t  fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2);
+fsv_t  fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str);
 
 #endif // FSV_DISABLE_TMP_BUFFER
 
@@ -819,6 +823,18 @@ fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
 
 fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str) {
     return fsv_tmp_concat(sv1, fsv_from_cstr(str));
+}
+
+fsv_t fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2) {
+    // Temporary solution
+    size_t saved_point = fsv_tmp_save_point();
+    fsv_t ret = fsv_tmp_concat(sv1, sv2);
+    fsv_tmp_rewind(save_point);
+    return ret;
+}
+
+fsv_t fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str) {
+    return fsv_tmp_concat_continuous(sv1, fsv_from_cstr(str));
 }
 
 #endif // FSV_DISABLE_TMP_BUFFER
