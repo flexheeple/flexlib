@@ -827,7 +827,7 @@ fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str) {
 
 fsv_t fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2) {
     // Temporary solution
-    size_t saved_point = fsv_tmp_save_point();
+    size_t save_point = fsv_tmp_save_point();
     fsv_t ret = fsv_tmp_concat(sv1, sv2);
     fsv_tmp_rewind(save_point);
     return ret;
