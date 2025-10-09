@@ -197,6 +197,8 @@ fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
 // But memory allocated in here is continuous
 fsv_t  fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2);
 fsv_t  fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str);
+fsv_t  fsv_tmp_escape_sv(fsv_t sv);
+fsv_t  fsv_tmp_escape_cstr(const char *string);
 
 #endif // FSV_DISABLE_TMP_BUFFER
 
@@ -826,7 +828,7 @@ fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str) {
 }
 
 fsv_t fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2) {
-    // Temporary solution
+    // [TODO]: Temporary solution, find a better way to do this
     size_t save_point = fsv_tmp_save_point();
     fsv_t ret = fsv_tmp_concat(sv1, sv2);
     fsv_tmp_rewind(save_point);
@@ -835,6 +837,44 @@ fsv_t fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2) {
 
 fsv_t fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str) {
     return fsv_tmp_concat_continuous(sv1, fsv_from_cstr(str));
+}
+
+fsv_t fsv_tmp_escape_sv(fsv_t sv) {
+    size_t len = 0;
+    size_t save_point = fsv_tmp_save_point();
+    char *datas = fsv_tmp_alloc(sv.length + 1);
+
+    for (size_t i = 0; i < sv.length; ++i) {
+        if (sv.datas[i] == '\\' && i + 1 < sv.length) {
+            // https://en.cppreference.com/w/c/language/escape.html
+            switch (sv.datas[i + 1]) {
+                case '\'': { datas[len] = '\''; i++; } break;
+                case '"':  { datas[len] = '"';  i++; } break;
+                case '?':  { datas[len] = '?';  i++; } break;
+                case '\\': { datas[len] = '\\'; i++; } break;
+                case 'a':  { datas[len] = '\a'; i++; } break;
+                case 'b':  { datas[len] = '\b'; i++; } break;
+                case 'f':  { datas[len] = '\f'; i++; } break;
+                case 'n':  { datas[len] = '\n'; i++; } break;
+                case 'r':  { datas[len] = '\r'; i++; } break;
+                case 't':  { datas[len] = '\t'; i++; } break;
+                case 'v':  { datas[len] = '\v'; i++; } break;
+                default:
+                    datas[len] = sv.datas[i];
+                    break;
+            }
+        } else { datas[len] = sv.datas[i]; }
+        len++;
+    }
+    fsv_tmp_rewind(save_point);
+    fsv_tmp_alloc(len + 1);
+    datas[len] = '\0';
+
+    return (fsv_t) { .length = len, .datas = datas };
+}
+
+fsv_t fsv_tmp_escape_cstr(const char *string) {
+    return fsv_tmp_escape_sv(fsv_from_cstr(string));
 }
 
 #endif // FSV_DISABLE_TMP_BUFFER
