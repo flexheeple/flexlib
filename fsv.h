@@ -124,12 +124,12 @@ bool    fsv_to_bool(fsv_t sv);
     } while (0)
 
 #undef  fda_append_many
-#define fda_append_many(da, _datas, size)              \
+#define fda_append_many(da, _datas, _size)              \
     do {                                               \
-        if ((da)->size + (size) >= (da)->capacity) {   \
-            fda_realloc((da), (size));                 \
+        if ((da)->size + (_size) >= (da)->capacity) {   \
+            fda_realloc((da), (_size));                 \
         }                                              \
-        for (int i = 0; i < (size); ++i) {             \
+        for (int i = 0; i < (_size); ++i) {             \
             (da)->datas[(da)->size++] = (_datas)[i];   \
         }                                              \
     } while (0)
