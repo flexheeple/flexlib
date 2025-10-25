@@ -110,7 +110,7 @@ bool    fsv_to_bool(fsv_t sv);
         while ((da)->size + (item_added) > (da)->capacity) {                           \
             (da)->capacity *= 2;                                                       \
         }                                                                              \
-        (da)->datas = FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
         FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
     } while (0)
 #endif // fda_realloc
@@ -141,7 +141,7 @@ bool    fsv_to_bool(fsv_t sv);
 #define fda_reserve(da, cap)                                                  \
     do {                                                                      \
         if ((da)->capacity >= (cap)) { break; }                               \
-        (da)->datas = FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
         FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
         (da)->capacity = (cap);                                               \
     } while (0)
@@ -190,7 +190,7 @@ fsb_t fsb_from_sv(const fsv_t sv);
 ///////////////////////// Temporary Buffer /////////////////////////
 #ifndef FSV_DISABLE_TMP_BUFFER
 
-void  *fsv_tmp_alloc(size_t bytes);
+char  *fsv_tmp_alloc(size_t bytes);
 void   fsv_tmp_reset(void);
 size_t fsv_tmp_save_point(void);
 void   fsv_tmp_rewind(size_t checkpoint);
@@ -241,11 +241,13 @@ fsv_t fsv_from_cstr(const char *string) {
 }
 
 fsv_t fsv_from_partial_cstr(const char *string, const size_t length) {
-    return (fsv_t) { .length = length, .datas = string };
+    if (length == 0) return (fsv_t) { .length = 0, .datas = NULL };
+    size_t len = fsv_strlen(string);
+    return (fsv_t) { .length = length > len ? len : length, .datas = string };
 }
 
 fsv_t fsv_from_sv(const fsv_t sv, const size_t length) {
-    return (fsv_t) { .length = length, .datas = sv.datas };
+    return fsv_from_partial_cstr(sv.datas, length);
 }
 
 fsv_t fsv_trim(fsv_t sv) {
@@ -294,8 +296,14 @@ char fsv_upper(char c) {
     return c;
 }
 
+// https://stackoverflow.com/questions/30033582/what-is-the-symbol-for-whitespace-in-c
 bool fsv_is_space(char c) {
-    return c == ' ' || c == '\n' || c == '\t';
+    return c == ' '
+        || c == '\n'
+        || c == '\t'
+        || c == '\v'
+        || c == '\f'
+        || c == '\r';
 }
 
 bool fsv_is_digit(char c) {
@@ -746,14 +754,14 @@ fsb_t fsb_from_sv(const fsv_t sv) {
 static char fsv_tmp_buffer[FSV_TMP_CAPACITY] = {0};
 static size_t fsv_tmp_size = 0;
 
-void *fsv_tmp_alloc(size_t bytes) {
+char *fsv_tmp_alloc(size_t bytes) {
     size_t word_size = sizeof(uintptr_t);
     size_t size = (bytes + word_size - 1)/word_size*word_size;
     if (fsv_tmp_size + size > FSV_TMP_CAPACITY) {
         FSV_ASSERT(false && "Extend the size of temporary allocator");
         return NULL;
     }
-    void *ret = &fsv_tmp_buffer[fsv_tmp_size];
+    char *ret = &fsv_tmp_buffer[fsv_tmp_size];
     fsv_tmp_size += size;
     return ret;
 }
