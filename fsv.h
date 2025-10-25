@@ -103,7 +103,7 @@ bool    fsv_to_bool(fsv_t sv);
 ///////////////////////// String Builder /////////////////////////
 #define FSB_INITIAL_CAPACITY (2)
 
-#undef  fda_realloc
+#ifndef fda_realloc
 #define fda_realloc(da, item_added)                                                    \
     do {                                                                               \
         if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }            \
@@ -113,36 +113,41 @@ bool    fsv_to_bool(fsv_t sv);
         (da)->datas = FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
         FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
     } while (0)
+#endif // fda_realloc
 
-#undef  fda_append
-#define fda_append(da, data)                      \
-    do {                                          \
-        if ((da)->size + 1 >= (da)->capacity) {   \
-            fda_realloc((da), 1);                 \
-        }                                         \
-        (da)->datas[(da)->size++] = data;         \
+#ifndef fda_append
+#define fda_append(da, data)                    \
+    do {                                        \
+        if ((da)->size + 1 >= (da)->capacity) { \
+            fda_realloc((da), 1);               \
+        }                                       \
+        (da)->datas[(da)->size++] = data;       \
     } while (0)
+#endif // fda_append
 
-#undef  fda_append_many
-#define fda_append_many(da, _datas, _size)              \
-    do {                                               \
-        if ((da)->size + (_size) >= (da)->capacity) {   \
-            fda_realloc((da), (_size));                 \
-        }                                              \
-        for (int i = 0; i < (_size); ++i) {             \
-            (da)->datas[(da)->size++] = (_datas)[i];   \
-        }                                              \
+#ifndef fda_append_many
+#define fda_append_many(da, _datas, _size)            \
+    do {                                              \
+        if ((da)->size + (_size) >= (da)->capacity) { \
+            fda_realloc((da), (_size));               \
+        }                                             \
+        for (int i = 0; i < (_size); ++i) {           \
+            (da)->datas[(da)->size++] = (_datas)[i];  \
+        }                                             \
     } while (0)
+#endif // fda_append_many
 
-#undef  fda_reserve
+#ifndef fda_reserve
 #define fda_reserve(da, cap)                                                  \
     do {                                                                      \
         if ((da)->capacity >= (cap)) { break; }                               \
         (da)->datas = FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
         FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
+        (da)->capacity = (cap);                                               \
     } while (0)
+#endif // fda_reserve
 
-#undef fda_free
+#ifndef fda_free
 #define fda_free(da)               \
     do {                           \
         if ((da)->datas != NULL) { \
@@ -152,6 +157,7 @@ bool    fsv_to_bool(fsv_t sv);
         (da)->size     = 0;        \
         (da)->capacity = 0;        \
     } while (0)
+#endif // fda_free
 
 typedef struct fstring_builder {
     union { size_t size; size_t length; };
