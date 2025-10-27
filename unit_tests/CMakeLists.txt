@@ -17,6 +17,8 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -Wall -Wextra -ggdb3")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -ggdb3")
 add_executable(fsv_unit_test fsv_unit_test.cpp)
 target_link_libraries(
     fsv_unit_test

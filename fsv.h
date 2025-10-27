@@ -8,7 +8,7 @@
 // [TODO]: make unit test for each api
 
 /* Usage
- *  fsv string_view = ...;
+ *  fsv_t string_view = ...;
  *  printf("string_view = " fsv_fmt "\n", fsv_arg(string_view));
  *  // Can also be used for fsb_t aka fstring_builder
  */
@@ -104,14 +104,14 @@ bool    fsv_to_bool(fsv_t sv);
 #define FSB_INITIAL_CAPACITY (2)
 
 #ifndef fda_realloc
-#define fda_realloc(da, item_added)                                                    \
-    do {                                                                               \
-        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }            \
-        while ((da)->size + (item_added) > (da)->capacity) {                           \
-            (da)->capacity *= 2;                                                       \
-        }                                                                              \
+#define fda_realloc(da, item_added)                                                                                  \
+    do {                                                                                                             \
+        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                          \
+        while ((da)->size + (item_added) > (da)->capacity) {                                                         \
+            (da)->capacity *= 2;                                                                                     \
+        }                                                                                                            \
         (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                         \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                       \
     } while (0)
 #endif // fda_realloc
 
@@ -138,12 +138,12 @@ bool    fsv_to_bool(fsv_t sv);
 #endif // fda_append_many
 
 #ifndef fda_reserve
-#define fda_reserve(da, cap)                                                  \
-    do {                                                                      \
-        if ((da)->capacity >= (cap)) { break; }                               \
+#define fda_reserve(da, cap)                                                                                \
+    do {                                                                                                    \
+        if ((da)->capacity >= (cap)) { break; }                                                             \
         (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                \
-        (da)->capacity = (cap);                                               \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                              \
+        (da)->capacity = (cap);                                                                             \
     } while (0)
 #endif // fda_reserve
 
@@ -373,13 +373,14 @@ bool fsv_split(fsv_t *sv, fsv_t *out) {
         out->length  = sv->length;
         sv->datas    = NULL;
         sv->length   = 0;
+        return false;
     } else {
         out->datas   = sv->datas;
         out->length  = index;
         sv->datas   += index + 1;
         sv->length  -= index + 1;
+        return true;
     }
-    return true;
 }
 
 bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
@@ -396,17 +397,19 @@ bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
         out->length  = sv->length;
         sv->datas    = NULL;
         sv->length   = 0;
+        return false;
     } else {
         out->datas   = sv->datas;
         out->length  = index;
         sv->datas   += index + 1;
         sv->length  -= index + 1;
+        return true;
     }
-    return true;
 }
 
 bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out) {
     if (sv->length == 0 || sv->datas == NULL) return false;
+    if (delim.length == 0 || delim.datas == NULL) return false;
 
     size_t index = 0;
     fsv_t window = fsv_from_partial_cstr(sv->datas, delim.length);
@@ -422,13 +425,14 @@ bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out) {
         out->length = sv->length;
         sv->datas   = NULL;
         sv->length  = 0;
+        return false;
     } else {
         out->datas  = sv->datas;
         out->length = index;
         sv->datas  += index + delim.length;
         sv->length -= index + delim.length;
+        return true;
     }
-    return true;
 }
 
 bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *out) {
