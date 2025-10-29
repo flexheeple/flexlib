@@ -90,14 +90,6 @@ bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *ou
 // --> left   = "something "
 bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left);
 
-int64_t fsv_to_int64_from_base(fsv_t sv, int base);
-int64_t fsv_to_int64_from_hex(fsv_t sv);
-int64_t fsv_to_int64_from_dec(fsv_t sv);
-int64_t fsv_to_int64_from_oct(fsv_t sv);
-int64_t fsv_to_int64_from_bin(fsv_t sv);
-int64_t fsv_to_int64(fsv_t sv);
-bool    fsv_to_bool(fsv_t sv);
-
 ///////////////////////// End of String View /////////////////////////
 
 ///////////////////////// String Builder /////////////////////////
@@ -126,14 +118,14 @@ bool    fsv_to_bool(fsv_t sv);
 #endif // fda_append
 
 #ifndef fda_append_many
-#define fda_append_many(da, _datas, _size)            \
-    do {                                              \
-        if ((da)->size + (_size) >= (da)->capacity) { \
-            fda_realloc((da), (_size));               \
-        }                                             \
-        for (int i = 0; i < (_size); ++i) {           \
-            (da)->datas[(da)->size++] = (_datas)[i];  \
-        }                                             \
+#define fda_append_many(da, _datas, _size)             \
+    do {                                               \
+        if ((da)->size + (_size) >= (da)->capacity) {  \
+            fda_realloc((da), (_size));                \
+        }                                              \
+        for (size_t i = 0; i < (size_t)(_size); ++i) { \
+            (da)->datas[(da)->size++] = (_datas)[i];   \
+        }                                              \
     } while (0)
 #endif // fda_append_many
 
@@ -190,7 +182,7 @@ fsb_t fsb_from_sv(const fsv_t sv);
 ///////////////////////// Temporary Buffer /////////////////////////
 #ifndef FSV_DISABLE_TMP_BUFFER
 
-char  *fsv_tmp_alloc(size_t bytes);
+char  *fsv_tmp_alloc(size_t how_many_chars);
 void   fsv_tmp_reset(void);
 size_t fsv_tmp_save_point(void);
 void   fsv_tmp_rewind(size_t checkpoint);
@@ -360,51 +352,23 @@ bool fsv_ends_with_cstr(fsv_t sv, const char *suffix, bool ignore_case) {
 }
 
 bool fsv_split(fsv_t *sv, fsv_t *out) {
-    if (sv->length == 0 || sv->datas == NULL) return false;
-
-    size_t index = 0;
-    while (true) {
-        if (index >= sv->length) break;
-        if (fsv_is_space(sv->datas[index])) break;
-        index++;
+    for (size_t i = 0; i < sv->length; ++i) {
+        if (fsv_is_space(sv->datas[i]))
+            return fsv_split_by_delim(sv, sv->datas[i], out);
     }
-    if (index == sv->length) {
-        out->datas   = sv->datas;
-        out->length  = sv->length;
-        sv->datas    = NULL;
-        sv->length   = 0;
-        return false;
-    } else {
-        out->datas   = sv->datas;
-        out->length  = index;
-        sv->datas   += index + 1;
-        sv->length  -= index + 1;
-        return true;
-    }
+    return false;
 }
 
 bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
-    if (sv->length == 0 || sv->datas == NULL) return false;
+    // This is basically:
+    //     return fsv_split_by_sv(sv, fsv_from_partial_cstr(&delim, 1), false, out);
+    // But I'm currently too dumb to know why valgrind doensn' t like this approach
+    size_t save_point = fsv_tmp_save_point();
+    char *datas = fsv_tmp_alloc(1); datas[0] = delim;
+    bool ret = fsv_split_by_sv(sv, fsv_from_partial_cstr(datas, 1), false, out);
 
-    size_t index = 0;
-    while (true) {
-        if (index >= sv->length) break;
-        if (sv->datas[index] == delim) break;
-        index++;
-    }
-    if (index == sv->length) {
-        out->datas   = sv->datas;
-        out->length  = sv->length;
-        sv->datas    = NULL;
-        sv->length   = 0;
-        return false;
-    } else {
-        out->datas   = sv->datas;
-        out->length  = index;
-        sv->datas   += index + 1;
-        sv->length  -= index + 1;
-        return true;
-    }
+    fsv_tmp_rewind(save_point);
+    return ret;
 }
 
 bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out) {
@@ -412,27 +376,22 @@ bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out) {
     if (delim.length == 0 || delim.datas == NULL) return false;
 
     size_t index = 0;
+    bool found = false;
     fsv_t window = fsv_from_partial_cstr(sv->datas, delim.length);
     while (true) {
-        if (index + delim.length >= sv->length) break;
-        if (fsv_eq(delim, window, ignore_case)) break;
-        index++;
-        window.datas++;
+        if (index + delim.length > sv->length) break;
+        if (fsv_eq(delim, window, ignore_case)) { found = true; break; }
+        index++; window.datas++;
     }
 
-    if (index + delim.length == sv->length) {
-        out->datas  = sv->datas;
-        out->length = sv->length;
-        sv->datas   = NULL;
-        sv->length  = 0;
-        return false;
-    } else {
+    if (found) {
         out->datas  = sv->datas;
         out->length = index;
         sv->datas  += index + delim.length;
         sv->length -= index + delim.length;
         return true;
     }
+    return false;
 }
 
 bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *out) {
@@ -441,129 +400,20 @@ bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *ou
 
 bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left) {
     FSV_ASSERT(fsv_strlen(pair) == 2);
-    if (right->length == 0 || right->datas == NULL) return false;
 
-    size_t first  = 0;
-    size_t second = 0;
-    fsv_t *sv = right;
-    while (true) {
-        if (first >= right->length) break;
-        if (right->datas[first] == pair[0]) break;
-        first++;
+    bool first = false;
+    bool second = false;
+    for (size_t i = 0; i < right->length; ++i) {
+        if (right->datas[i] == pair[0]) first = true;
+        if (right->datas[i] == pair[1]) second = true;
+        if (first && second) break;
     }
-    if (first == right->length) {
-        left->datas    = sv->datas;
-        left->length   = sv->length;
-        right->datas   = NULL;
-        right->length  = 0;
-        middle->datas  = NULL;
-        middle->length = 0;
-        return true;
-    }
+    if (!first || !second) return false;
 
-    second = first + 1;
-    while (true) {
-        if (second >= right->length) break;
-        if (right->datas[second] == pair[1]) break;
-        second++;
-    }
-    if (second == right->length) {
-        left->datas    = sv->datas;
-        left->length   = first;
-        middle->datas  = sv->datas + first + 1;
-        middle->length = second    - first - 1;
-        right->datas   = NULL;
-        right->length  = 0;
-    } else {
-        left->datas    = sv->datas;
-        left->length   = first;
-        middle->datas  = sv->datas  + first  + 1;
-        middle->length = second     - first  - 1;
-        right->datas   = sv->datas  + second + 1;
-        right->length  = sv->length - second - 1;
-    }
+    fsv_split_by_sv(right, fsv_from_partial_cstr(pair, 1), false, left);
+    fsv_split_by_sv(right, fsv_from_partial_cstr(pair + 1, 1), false, middle);
+
     return true;
-}
-
-int64_t fsv_to_int64_from_base(fsv_t sv, int base) {
-    char c;
-    int64_t b = 1;
-    int64_t ret = 0;
-    bool negative = false;
-
-    if (base != 2 && base != 8 && base != 10 && base != 16) {
-        FSV_LOGE("Unsupported base: %d, Only supports binary, octal, decimal, hexa-decimal", base);
-        return ret;
-    }
-
-    if (sv.datas[0] == '-') {
-        negative = true;
-        sv.datas  += 1;
-        sv.length -= 1;
-    }
-
-    if ((base ==  2 && fsv_starts_with_cstr(sv, "0b", true)) ||
-        (base ==  8 && fsv_starts_with_cstr(sv, "0o", true)) ||
-        (base == 16 && fsv_starts_with_cstr(sv, "0x", true))) {
-        sv.datas  += 2;
-        sv.length -= 2;
-    }
-
-    for (int i = sv.length - 1; i >= 0; i--) {
-        c = fsv_lower(sv.datas[i]);
-        if ((base ==  2 && ( c != '0' && c != '1')) ||
-            (base ==  8 && ( c  < '0' && c  > '7')) ||
-            (base == 16 && ((c  < 'a' || c  > 'f') && !fsv_is_digit(c)))) {
-            goto result;
-        }
-        if (base == 16 && 'a' <= c && c <= 'f') {
-            ret += (c - 'a' + 10)*b;
-        } else {
-            ret += (c - '0')*b;
-        }
-        b *= base;
-    }
-
-result:
-    if (negative) ret *= -1;
-    return ret;
-}
-
-int64_t fsv_to_int64_from_hex(fsv_t sv) {
-    return fsv_to_int64_from_base(sv, 16);
-}
-
-int64_t fsv_to_int64_from_dec(fsv_t sv) {
-    return fsv_to_int64_from_base(sv, 10);
-}
-
-int64_t fsv_to_int64_from_oct(fsv_t sv) {
-    return fsv_to_int64_from_base(sv, 8);
-}
-
-int64_t fsv_to_int64_from_bin(fsv_t sv) {
-    return fsv_to_int64_from_base(sv, 2);
-}
-
-int64_t fsv_to_int64(fsv_t sv) {
-    if (fsv_starts_with_cstr(sv, "0x", true) || fsv_starts_with_cstr(sv, "-0x", true)) {
-        return fsv_to_int64_from_hex(sv);
-    } else if (fsv_starts_with_cstr(sv, "0b", true) || fsv_starts_with_cstr(sv, "-0b", true)) {
-        return fsv_to_int64_from_bin(sv);
-    } else if (fsv_starts_with_cstr(sv, "0o", true) || fsv_starts_with_cstr(sv, "-0o", true)) {
-        return fsv_to_int64_from_oct(sv);
-    } else {
-        return fsv_to_int64_from_dec(sv);
-    }
-}
-
-bool fsv_to_bool(fsv_t sv) {
-    if (fsv_eq_cstr(sv, "false", true)) {
-        return false;
-    } else if (fsv_eq_cstr(sv, "true", true)) {
-        return true;
-    }
-    return false;
 }
 
 ///////////////////////// End of String View /////////////////////////
@@ -712,10 +562,7 @@ int fsb_append_strf(fsb_t *sb, const char *fmt, ...) {
 }
 
 void fsb_free(fsb_t *sb) {
-    if (sb->datas != NULL) FSV_FREE(sb->datas);
-    sb->length   = 0;
-    sb->capacity = 0;
-    sb->datas     = NULL;
+    fda_free(sb);
 }
 
 void ffp_free(ffp_t *fp) {
@@ -758,15 +605,13 @@ fsb_t fsb_from_sv(const fsv_t sv) {
 static char fsv_tmp_buffer[FSV_TMP_CAPACITY] = {0};
 static size_t fsv_tmp_size = 0;
 
-char *fsv_tmp_alloc(size_t bytes) {
-    size_t word_size = sizeof(uintptr_t);
-    size_t size = (bytes + word_size - 1)/word_size*word_size;
-    if (fsv_tmp_size + size > FSV_TMP_CAPACITY) {
+char *fsv_tmp_alloc(size_t how_many_chars) {
+    if (fsv_tmp_size + how_many_chars >= FSV_TMP_CAPACITY) {
         FSV_ASSERT(false && "Extend the size of temporary allocator");
         return NULL;
     }
     char *ret = &fsv_tmp_buffer[fsv_tmp_size];
-    fsv_tmp_size += size;
+    fsv_tmp_size += how_many_chars;
     return ret;
 }
 

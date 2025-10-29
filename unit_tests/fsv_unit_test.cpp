@@ -409,6 +409,8 @@ TEST(fstring_view, fsv_split_NORMAL) {
     EXPECT_FALSE(fsv_split(&sv, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "lazy"));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "dog"));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_LEADING_SPACE) {
@@ -448,6 +450,8 @@ TEST(fstring_view, fsv_split_LEADING_SPACE) {
     EXPECT_FALSE(fsv_split(&sv, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "leading"));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "space"));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_TRAILING_SPACE) {
@@ -485,6 +489,8 @@ TEST(fstring_view, fsv_split_TRAILING_SPACE) {
     EXPECT_FALSE(fsv_split(&sv, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_NOTHING_TO_SPLIT) {
@@ -497,6 +503,8 @@ TEST(fstring_view, fsv_split_NOTHING_TO_SPLIT) {
     EXPECT_FALSE(fsv_split(&sv, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_FROM_EMPTY_STRING_AND_NULL) {
@@ -512,6 +520,8 @@ TEST(fstring_view, fsv_split_FROM_EMPTY_STRING_AND_NULL) {
     EXPECT_FALSE(fsv_split(&sv, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_delim_STARTS_AND_ENDS_WITH_DELIM) {
@@ -541,6 +551,8 @@ TEST(fstring_view, fsv_split_by_delim_STARTS_AND_ENDS_WITH_DELIM) {
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_delim_STARTS_WITH_DELIM) {
@@ -566,6 +578,8 @@ TEST(fstring_view, fsv_split_by_delim_STARTS_WITH_DELIM) {
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "user"));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "some_folder"));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_delim_ENDS_WITH_DELIM) {
@@ -591,6 +605,8 @@ TEST(fstring_view, fsv_split_by_delim_ENDS_WITH_DELIM) {
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_delim_NOTHING_TO_SPLIT) {
@@ -604,6 +620,8 @@ TEST(fstring_view, fsv_split_by_delim_NOTHING_TO_SPLIT) {
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_delim_FROM_NULL_AND_EMPTY_STRING) {
@@ -619,6 +637,8 @@ TEST(fstring_view, fsv_split_by_delim_FROM_NULL_AND_EMPTY_STRING) {
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_cstr_SPLIT_BY_NULL_OR_EMPTY_STRING) {
@@ -643,6 +663,8 @@ TEST(fstring_view, fsv_split_by_cstr_SPLIT_BY_NULL_OR_EMPTY_STRING) {
     EXPECT_FALSE(fsv_split_by_cstr(&sv, delim, false, &ot));
     EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    EXPECT_EQ(fsv_tmp_save_point(), 0);
 }
 
 TEST(fstring_view, fsv_split_by_pair_NORMAL) {
@@ -723,7 +745,7 @@ TEST(fstring_builder, MACRO_fda_append_many) {
 
 TEST(fstring_builder, MACRO_fda_reserve) {
     fsb_t sb = {};
-    size_t len = rand()%SIZE_MAX;
+    size_t len = rand()%(1024*1024);
 
     fda_reserve(&sb, len);
     EXPECT_EQ(sb.capacity, len);
