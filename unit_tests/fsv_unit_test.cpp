@@ -3,36 +3,44 @@
 #define FSV_IMPLEMENTATION
 #include "../fsv.h"
 
+testing::AssertionResult fexpect_sv_eq_cstr(fsv_t sv, const char *cstr) {
+    if (cstr == nullptr && sv.length != 0) {
+        return testing::AssertionFailure() << "NULL string shouldn't have length of " << sv.length;
+    } else if (cstr != nullptr && sv.length != strlen(cstr)) {
+        return testing::AssertionFailure() << "String: `"  <<
+            sv.datas << "` (len = " << sv.length    << ") is different from string `" <<
+            cstr     << "` (len = " << strlen(cstr) << ")";
+    } else if (strncmp(sv.datas, cstr, sv.length) != 0) {
+        return testing::AssertionFailure() << "`" << sv.datas << "`" << " is different from `" << cstr << "`";
+    } else {
+        return testing::AssertionSuccess();
+    }
+}
+
 TEST(fstring_view, fsv_from_cstr_NORMAL_CSTRING) {
     srand(time(NULL));
     const char *cstr = "The quick brown fox jumps over the lazy dog";
     fsv_t sv = fsv_from_cstr(cstr);
-
-    EXPECT_EQ(sv.length, strlen(cstr));
-    EXPECT_EQ(strncmp(sv.datas, cstr, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
 TEST(fstring_view, fsv_from_cstr_NULL) {
-    fsv_t sv = fsv_from_cstr(nullptr);
-
-    EXPECT_EQ(sv.length, 0);
-    EXPECT_STREQ(sv.datas, nullptr);
+    const char *cstr = nullptr;
+    fsv_t sv = fsv_from_cstr(cstr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
 TEST(fstring_view, fsv_from_cstr_EMPTY_STRING) {
-    fsv_t sv = fsv_from_cstr("");
-
-    EXPECT_EQ(sv.length, 0);
-    EXPECT_STREQ(sv.datas, nullptr);
+    const char *cstr = "";
+    fsv_t sv = fsv_from_cstr(cstr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
 TEST(fstring_view, fsv_from_partial_cstr_NORMAL_EQUAL_LENGTH) {
     const char *cstr = "The quick brown fox jumps over the lazy dog";
     size_t cstr_len = strlen(cstr);
     fsv_t sv = fsv_from_partial_cstr(cstr, cstr_len);
-
-    EXPECT_EQ(sv.length, cstr_len);
-    EXPECT_STREQ(sv.datas, cstr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
 TEST(fstring_view, fsv_from_partial_cstr_NORMAL_SMALLER_LENGTH) {
@@ -363,216 +371,120 @@ TEST(fstring_view, fsv_starts_or_ends_with_FROM_NULL_WITH_EMPTY_STRING) {
 TEST(fstring_view, fsv_split_NORMAL) {
     fsv_t ot = {};
     fsv_t sv = fsv_from_cstr("the quick\nbrown\tfox\vjumps\fover\rthe lazy dog");
-    const char *ex_ot = nullptr;
-    const char *ex_sv = nullptr;
 
-    ex_ot = "the";
-    ex_sv = "quick\nbrown\tfox\vjumps\fover\rthe lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "the"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "quick\nbrown\tfox\vjumps\fover\rthe lazy dog"));
 
-    ex_ot = "quick";
-    ex_sv = "brown\tfox\vjumps\fover\rthe lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "quick"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "brown\tfox\vjumps\fover\rthe lazy dog"));
 
-    ex_ot = "brown";
-    ex_sv = "fox\vjumps\fover\rthe lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "brown"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "fox\vjumps\fover\rthe lazy dog"));
 
-    ex_ot = "fox";
-    ex_sv = "jumps\fover\rthe lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "fox"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "jumps\fover\rthe lazy dog"));
 
-    ex_ot = "jumps";
-    ex_sv = "over\rthe lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "jumps"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "over\rthe lazy dog"));
 
-    ex_ot = "over";
-    ex_sv = "the lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "over"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "the lazy dog"));
 
-    ex_ot = "the";
-    ex_sv = "lazy dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "the"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "lazy dog"));
 
-    ex_ot = "lazy";
-    ex_sv = "dog";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "lazy"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "dog"));
 
-    ex_ot = "dog";
-    ex_sv = "";
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "lazy"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "dog"));
 }
 
 TEST(fstring_view, fsv_split_LEADING_SPACE) {
     fsv_t ot = {};
     fsv_t sv = fsv_from_cstr(" \r\n\t\v\fleading space");
-    const char *ex_ot = nullptr;
-    const char *ex_sv = nullptr;
 
-    ex_ot = "";
-    ex_sv = "\r\n\t\v\fleading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\r\n\t\v\fleading space"));
 
-    ex_ot = "";
-    ex_sv = "\n\t\v\fleading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\n\t\v\fleading space"));
 
-    ex_ot = "";
-    ex_sv = "\t\v\fleading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\t\v\fleading space"));
 
-    ex_ot = "";
-    ex_sv = "\v\fleading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\v\fleading space"));
 
-    ex_ot = "";
-    ex_sv = "\fleading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\fleading space"));
 
-    ex_ot = "";
-    ex_sv = "leading space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "leading space"));
 
-    ex_ot = "leading";
-    ex_sv = "space";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "leading"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "space"));
 
-    ex_ot = "space";
-    ex_sv = "";
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "leading"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "space"));
 }
 
 TEST(fstring_view, fsv_split_TRAILING_SPACE) {
     fsv_t ot = {};
     fsv_t sv = fsv_from_cstr("trailing space\r\n\t\f\v ");
-    const char *ex_ot = nullptr;
-    const char *ex_sv = nullptr;
 
-    ex_ot = "trailing";
-    ex_sv = "space\r\n\t\f\v ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "trailing"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "space\r\n\t\f\v "));
 
-    ex_ot = "space";
-    ex_sv = "\n\t\f\v ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "space"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\n\t\f\v "));
 
-    ex_ot = "";
-    ex_sv = "\t\f\v ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\t\f\v "));
 
-    ex_ot = "";
-    ex_sv = "\f\v ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\f\v "));
 
-    ex_ot = "";
-    ex_sv = "\v ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "\v "));
 
-    ex_ot = "";
-    ex_sv = " ";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, " "));
 
-    ex_ot = "";
-    ex_sv = "";
     EXPECT_TRUE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 
     EXPECT_FALSE(fsv_split(&sv, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 }
 
 TEST(fstring_view, fsv_split_NOTHING_TO_SPLIT) {
@@ -580,11 +492,11 @@ TEST(fstring_view, fsv_split_NOTHING_TO_SPLIT) {
     fsv_t sv = fsv_from_cstr(cstr);
     fsv_t ot = {};
 
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, strlen(cstr));
-    EXPECT_EQ(sv.length, 0);
-    EXPECT_EQ(strncmp(ot.datas, cstr, ot.length), 0);
-    EXPECT_STREQ(sv.datas, nullptr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
 TEST(fstring_view, fsv_split_FROM_EMPTY_STRING_AND_NULL) {
@@ -593,11 +505,13 @@ TEST(fstring_view, fsv_split_FROM_EMPTY_STRING_AND_NULL) {
     fsv_t ot = {};
 
     EXPECT_FALSE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, 0); EXPECT_EQ(sv.length, 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 
     cstr = nullptr;
     EXPECT_FALSE(fsv_split(&sv, &ot));
-    EXPECT_EQ(ot.length, 0); EXPECT_EQ(sv.length, 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 }
 
 TEST(fstring_view, fsv_split_by_delim_STARTS_AND_ENDS_WITH_DELIM) {
@@ -605,42 +519,28 @@ TEST(fstring_view, fsv_split_by_delim_STARTS_AND_ENDS_WITH_DELIM) {
     char delim        = '/';
     fsv_t sv          = fsv_from_cstr(cstr);
     fsv_t ot          = {};
-    const char *ex_sv = nullptr;
-    const char *ex_ot = nullptr;
 
-    ex_ot = "";
-    ex_sv = "home/user/some_folder/";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "home/user/some_folder/"));
 
-    ex_ot = "home";
-    ex_sv = "user/some_folder/";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "home"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "user/some_folder/"));
 
-    ex_ot = "user";
-    ex_sv = "some_folder/";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "user"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "some_folder/"));
 
-    ex_ot = "some_folder";
-    ex_sv = "";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 }
 
 TEST(fstring_view, fsv_split_by_delim_STARTS_WITH_DELIM) {
@@ -648,40 +548,24 @@ TEST(fstring_view, fsv_split_by_delim_STARTS_WITH_DELIM) {
     char delim        = '%';
     fsv_t sv          = fsv_from_cstr(cstr);
     fsv_t ot          = {};
-    const char *ex_sv = nullptr;
-    const char *ex_ot = nullptr;
 
-    ex_ot = "";
-    ex_sv = "home%user%some_folder";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "home%user%some_folder"));
 
-    ex_ot = "home";
-    ex_sv = "user%some_folder";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "home"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "user%some_folder"));
 
-    ex_ot = "user";
-    ex_sv = "some_folder";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "user"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "some_folder"));
 
-    ex_ot = "some_folder";
-    ex_sv = "";
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "user"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "some_folder"));
 }
 
 TEST(fstring_view, fsv_split_by_delim_ENDS_WITH_DELIM) {
@@ -689,34 +573,24 @@ TEST(fstring_view, fsv_split_by_delim_ENDS_WITH_DELIM) {
     char delim        = '&';
     fsv_t sv          = fsv_from_cstr(cstr);
     fsv_t ot          = {};
-    const char *ex_sv = nullptr;
-    const char *ex_ot = nullptr;
 
-    ex_ot = "home";
-    ex_sv = "user&some_folder&";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "home"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "user&some_folder&"));
 
-    ex_ot = "user";
-    ex_sv = "some_folder&";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "user"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, "some_folder&"));
 
-    ex_ot = "some_folder";
-    ex_sv = "";
     EXPECT_TRUE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(ex_ot));
-    EXPECT_EQ(sv.length, strlen(ex_sv));
-    EXPECT_EQ(strncmp(ot.datas, ex_ot, ot.length), 0);
-    EXPECT_EQ(strncmp(sv.datas, ex_sv, sv.length), 0);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, "some_folder"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
 }
 
 TEST(fstring_view, fsv_split_by_delim_NOTHING_TO_SPLIT) {
@@ -725,18 +599,203 @@ TEST(fstring_view, fsv_split_by_delim_NOTHING_TO_SPLIT) {
     fsv_t sv          = fsv_from_cstr(cstr);
     char delim        = '/';
 
+    // After a fail split, input should be the same
+    // as before passing into the function
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, strlen(cstr)); EXPECT_STREQ(ot.datas, cstr);
-    EXPECT_EQ(sv.length, 0);            EXPECT_STREQ(sv.datas, nullptr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
-TEST(fstring_view, fsv_split_by_delim_FROM_NULL) {
-    const char *cstr  = nullptr;
-    fsv_t ot          = {};
-    fsv_t sv          = fsv_from_cstr(cstr);
-    char delim        = '/';
+TEST(fstring_view, fsv_split_by_delim_FROM_NULL_AND_EMPTY_STRING) {
+    fsv_t ot   = {};
+    fsv_t sv   = fsv_from_cstr(nullptr);
+    char delim = '/';
 
     EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
-    EXPECT_EQ(ot.length, 0); EXPECT_STREQ(ot.datas, nullptr);
-    EXPECT_EQ(sv.length, 0); EXPECT_STREQ(sv.datas, nullptr);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+
+    sv = fsv_from_cstr("");
+    EXPECT_FALSE(fsv_split_by_delim(&sv, delim, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ""));
+}
+
+TEST(fstring_view, fsv_split_by_cstr_SPLIT_BY_NULL_OR_EMPTY_STRING) {
+    const char *cstr  = "THe QUIck bROwn FoX juMPS oVeR THe lazy DOg";
+    const char *delim = nullptr;
+    fsv_t ot          = {};
+    fsv_t sv          = fsv_from_cstr(cstr);
+
+    EXPECT_FALSE(fsv_split_by_cstr(&sv, delim, true, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    EXPECT_FALSE(fsv_split_by_cstr(&sv, delim, false, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    delim = "";
+    EXPECT_FALSE(fsv_split_by_cstr(&sv, delim, true, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+
+    EXPECT_FALSE(fsv_split_by_cstr(&sv, delim, false, &ot));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(ot, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
+}
+
+TEST(fstring_view, fsv_split_by_pair_NORMAL) {
+    const char *cstr  = "THe QUIck bROwn FoX [juMPS] oVeR THe lazy DOg";
+    fsv_t right       = fsv_from_cstr(cstr);
+    fsv_t left        = {};
+    fsv_t middle      = {};
+
+    EXPECT_TRUE(fsv_split_by_pair(&right, "[]", &middle, &left));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(left, "THe QUIck bROwn FoX "));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(middle, "juMPS"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(right, " oVeR THe lazy DOg"));
+}
+
+TEST(fstring_view, fsv_split_by_pair_MISSING_RIGHT_PAIR) {
+    const char *cstr  = "THe QUIck bROwn FoX [juMPS oVeR THe lazy DOg";
+    fsv_t right       = fsv_from_cstr(cstr);
+    fsv_t left        = {};
+    fsv_t middle      = {};
+
+    EXPECT_FALSE(fsv_split_by_pair(&right, "[]", &middle, &left));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(left, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(middle, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(right, cstr));
+}
+
+TEST(fstring_view, fsv_split_by_pair_MISSING_LEFT_PAIR) {
+    const char *cstr  = "THe QUIck bROwn FoX juMPS] oVeR THe lazy DOg";
+    fsv_t right       = fsv_from_cstr(cstr);
+    fsv_t left        = {};
+    fsv_t middle      = {};
+
+    EXPECT_FALSE(fsv_split_by_pair(&right, "[]", &middle, &left));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(left, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(middle, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(right, cstr));
+}
+
+TEST(fstring_view, fsv_split_by_pair_PAIR_AT_START_AND_END) {
+    const char *cstr  = "(THe QUIck bROwn FoX juMPS oVeR THe lazy DOg)";
+    fsv_t right       = fsv_from_cstr(cstr);
+    fsv_t left        = {};
+    fsv_t middle      = {};
+
+    EXPECT_TRUE(fsv_split_by_pair(&right, "()", &middle, &left));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(left, ""));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(middle, "THe QUIck bROwn FoX juMPS oVeR THe lazy DOg"));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(right, ""));
+}
+
+TEST(fstring_builder, MACRO_fda_append) {
+    fsb_t sb = {};
+
+    fda_append(&sb, rand()%((int)'z') + 'a');
+    EXPECT_TRUE(sb.capacity > 0);
+    EXPECT_EQ(sb.length, 1);
+
+    fda_free(&sb);
+    EXPECT_EQ(sb.datas, nullptr);
+    EXPECT_EQ(sb.capacity, 0);
+    EXPECT_EQ(sb.length, 0);
+}
+
+TEST(fstring_builder, MACRO_fda_append_many) {
+    fsb_t sb = {};
+    const char *cstr = "The quick brown fox jumps over the lazy dog";
+
+    fda_append_many(&sb, cstr, strlen(cstr));
+    EXPECT_TRUE(sb.capacity > 0);
+    EXPECT_EQ(sb.length, strlen(cstr));
+    EXPECT_EQ(strncmp(sb.datas, cstr, sb.length), 0);
+
+    fda_free(&sb);
+    EXPECT_EQ(sb.datas, nullptr);
+    EXPECT_EQ(sb.capacity, 0);
+    EXPECT_EQ(sb.length, 0);
+}
+
+TEST(fstring_builder, MACRO_fda_reserve) {
+    fsb_t sb = {};
+    size_t len = rand()%SIZE_MAX;
+
+    fda_reserve(&sb, len);
+    EXPECT_EQ(sb.capacity, len);
+    EXPECT_EQ(sb.length, 0);
+
+    fda_free(&sb);
+    EXPECT_EQ(sb.datas, nullptr);
+    EXPECT_EQ(sb.capacity, 0);
+    EXPECT_EQ(sb.length, 0);
+}
+
+TEST(fstring_builder, fsb_read_entire_file_TEST) {
+    fsb_t sb = {};
+    const char *file_path = "fsv.h";
+
+    EXPECT_TRUE(fsb_read_entire_file(file_path, &sb));
+    EXPECT_NE(sb.length, 0);
+    EXPECT_NE(sb.capacity, 0);
+    EXPECT_NE(sb.datas, nullptr);
+
+    fda_free(&sb);
+    EXPECT_EQ(sb.datas, nullptr);
+    EXPECT_EQ(sb.capacity, 0);
+    EXPECT_EQ(sb.length, 0);
+}
+
+TEST(fstring_builder, fsb_read_entire_dir_TEST) {
+    ffp_t fp = {};
+    const char *file_path = ".";
+
+    EXPECT_TRUE(fsb_read_entire_dir(file_path, &fp, false));
+    EXPECT_NE(fp.size, 0);
+    EXPECT_NE(fp.capacity, 0);
+    EXPECT_NE(fp.datas, nullptr);
+    size_t non_recursive_len = fp.size;
+
+    ffp_free(&fp);
+    EXPECT_EQ(fp.datas, nullptr);
+    EXPECT_EQ(fp.capacity, 0);
+    EXPECT_EQ(fp.size, 0);
+
+    EXPECT_TRUE(fsb_read_entire_dir(file_path, &fp, true));
+    EXPECT_NE(fp.size, 0);
+    EXPECT_NE(fp.capacity, 0);
+    EXPECT_NE(fp.datas, nullptr);
+    EXPECT_TRUE(fp.size > non_recursive_len);
+
+    ffp_free(&fp);
+    EXPECT_EQ(fp.datas, nullptr);
+    EXPECT_EQ(fp.capacity, 0);
+    EXPECT_EQ(fp.size, 0);
+}
+
+TEST(ftemp_buffer, fsv_tmp_alloc_test) {
+    size_t save_point = fsv_tmp_save_point();
+
+    size_t length = rand()%FSV_TMP_CAPACITY;
+    fsv_tmp_alloc(length);
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, length);
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+}
+
+TEST(ftemp_buffer, fsv_tmp_strdup) {
+    size_t save_point = fsv_tmp_save_point();
+    const char *cstr = "The quick brown fox jumps over the lazy dog";
+
+    char *ret = fsv_tmp_strdup(cstr);
+    EXPECT_EQ(fsv_tmp_save_point() - save_point - 1, strlen(cstr));
+    EXPECT_STREQ(ret, cstr);
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
 }
