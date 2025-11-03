@@ -83,11 +83,6 @@ bool fsv_split(fsv_t *sv, fsv_t *out);
 bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out);
 bool fsv_split_by_sv(fsv_t *sv, fsv_t delim, bool ignore_case, fsv_t *out);
 bool fsv_split_by_cstr(fsv_t *sv, const char *delim, bool ignore_case, fsv_t *out);
-// Example:
-// fsv_split_by_pair("something [Not] correct", "[]", middle, left);
-// --> right  = " correct"
-// --> middle = "Not"
-// --> left   = "something "
 bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *left);
 
 ///////////////////////// End of String View /////////////////////////
@@ -195,8 +190,6 @@ fsv_t  fsv_tmp_concat_cstr(fsv_t sv1, const char *str);
 // But memory allocated in here is continuous
 fsv_t  fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2);
 fsv_t  fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str);
-fsv_t  fsv_tmp_escape_sv(fsv_t sv);
-fsv_t  fsv_tmp_escape_cstr(const char *string);
 
 #endif // FSV_DISABLE_TMP_BUFFER
 
@@ -362,7 +355,7 @@ bool fsv_split(fsv_t *sv, fsv_t *out) {
 bool fsv_split_by_delim(fsv_t *sv, char delim, fsv_t *out) {
     // This is basically:
     //     return fsv_split_by_sv(sv, fsv_from_partial_cstr(&delim, 1), false, out);
-    // But I'm currently too dumb to know why valgrind doensn' t like this approach
+    // But I'm currently too dumb to know why valgrind doesn' t like this approach
     size_t save_point = fsv_tmp_save_point();
     char *datas = fsv_tmp_alloc(1); datas[0] = delim;
     bool ret = fsv_split_by_sv(sv, fsv_from_partial_cstr(datas, 1), false, out);
@@ -428,6 +421,7 @@ bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fsv_t *lef
 
 bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     bool ret = true;
+    size_t byte_read = 0;
     FILE *file = fopen(file_path, "rb");
 
 #ifndef _WIN32
@@ -463,7 +457,8 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
     }
 
     fda_reserve(sb, sb->length + file_size);
-    fread(sb->datas + sb->length, file_size, 1, file);
+    byte_read = fread(sb->datas + sb->length, 1, file_size, file);
+    FSV_ASSERT(byte_read == (size_t)file_size);
     if (ferror(file)) {
         ret = false;
         FSV_LOGE("Could not fread file `%s`. %s", file_path, strerror(errno));
@@ -655,6 +650,7 @@ char *fsv_tmp_sprintf(const char *format, ...) {
 }
 
 char *fsv_tmp_sv_to_cstr(fsv_t sv) {
+    if (sv.length == 0 || sv.datas == NULL) return NULL;
     char *ret = (char*)fsv_tmp_alloc(sv.length + 1);
 
     for (size_t i = 0; i < sv.length; ++i) {
@@ -667,21 +663,22 @@ char *fsv_tmp_sv_to_cstr(fsv_t sv) {
 
 fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
     size_t length = sv1.length + sv2.length;
-    char *buffer = (char*) fsv_tmp_alloc(length + 1);
+    char *buffer = (char*) fsv_tmp_alloc(length);
     fsv_t ret = { .length = length, .datas = buffer };
 
     size_t index = 0;
-    if (sv1.length > 0) {
+    if (sv1.length > 0 || sv1.datas != NULL) {
         for (size_t i = 0; i < sv1.length; ++i) {
             buffer[index++] = sv1.datas[i];
         }
     }
-    if (sv2.length > 0) {
+    if (sv2.length > 0 || sv2.datas != NULL) {
         for (size_t i = 0; i < sv2.length; ++i) {
             buffer[index++] = sv2.datas[i];
         }
     }
-    buffer[length] = '\0';
+    if (fsv_tmp_save_point() + 1 < FSV_TMP_CAPACITY)
+        buffer[length] = '\0';
 
     return ret;
 }
@@ -691,7 +688,6 @@ fsv_t fsv_tmp_concat_cstr(fsv_t sv1, const char *str) {
 }
 
 fsv_t fsv_tmp_concat_continuous(fsv_t sv1, fsv_t sv2) {
-    // [TODO]: Temporary solution, find a better way to do this
     size_t save_point = fsv_tmp_save_point();
     fsv_t ret = fsv_tmp_concat(sv1, sv2);
     fsv_tmp_rewind(save_point);
@@ -702,58 +698,30 @@ fsv_t fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str) {
     return fsv_tmp_concat_continuous(sv1, fsv_from_cstr(str));
 }
 
-fsv_t fsv_tmp_escape_sv(fsv_t sv) {
-    size_t len = 0;
-    size_t save_point = fsv_tmp_save_point();
-    char *datas = fsv_tmp_alloc(sv.length + 1);
-
-    for (size_t i = 0; i < sv.length; ++i) {
-        if (sv.datas[i] == '\\' && i + 1 < sv.length) {
-            // https://en.cppreference.com/w/c/language/escape.html
-            switch (sv.datas[i + 1]) {
-                case '\'': { datas[len] = '\''; i++; } break;
-                case '"':  { datas[len] = '"';  i++; } break;
-                case '?':  { datas[len] = '?';  i++; } break;
-                case '\\': { datas[len] = '\\'; i++; } break;
-                case 'a':  { datas[len] = '\a'; i++; } break;
-                case 'b':  { datas[len] = '\b'; i++; } break;
-                case 'f':  { datas[len] = '\f'; i++; } break;
-                case 'n':  { datas[len] = '\n'; i++; } break;
-                case 'r':  { datas[len] = '\r'; i++; } break;
-                case 't':  { datas[len] = '\t'; i++; } break;
-                case 'v':  { datas[len] = '\v'; i++; } break;
-                default:
-                    datas[len] = sv.datas[i];
-                    break;
-            }
-        } else { datas[len] = sv.datas[i]; }
-        len++;
-    }
-    fsv_tmp_rewind(save_point);
-    fsv_tmp_alloc(len + 1);
-    datas[len] = '\0';
-
-    return (fsv_t) { .length = len, .datas = datas };
-}
-
-fsv_t fsv_tmp_escape_cstr(const char *string) {
-    return fsv_tmp_escape_sv(fsv_from_cstr(string));
-}
-
 #endif // FSV_DISABLE_TMP_BUFFER
 ///////////////////////// End of Temporary Buffer /////////////////////////
 
 void fsv_log(const fsv_log_level_t level, const char *msg, ...) {
-    FILE *output = NULL;
-    va_list arg = {};
-    char *buffer = fsv_tmp_buffer + fsv_tmp_save_point();
+    FILE *output  = NULL;
+    va_list arg   = {};
+    char *buffer  = fsv_tmp_buffer + fsv_tmp_save_point();
+    int length = 0;
 
     if (level == FSV_LOG_INFO) output = stdout;
     else if (level == FSV_LOG_ERROR) output = stderr;
     FSV_ASSERT(output != NULL);
 
     va_start(arg, msg);
-    vsnprintf(buffer, FSV_TMP_CAPACITY, msg, arg);
+    length = FSV_TMP_CAPACITY - vsnprintf(NULL, 0, msg, arg) - 1;
+    //                                     [  msg length  ]
+    // [-------------->--------------------<--------------]
+    // [  user alloc  ]
+    FSV_ASSERT(0 < length && length < (int)FSV_TMP_CAPACITY);
+    FSV_ASSERT(length > (int)fsv_tmp_save_point());
+    va_end(arg);
+
+    va_start(arg, msg);
+    vsnprintf(buffer + length, length, msg, arg);
     va_end(arg);
 
     fprintf(output, "%s\n", buffer);
