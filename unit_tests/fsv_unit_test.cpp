@@ -24,15 +24,13 @@ TEST(fstring_view, fsv_from_cstr_NORMAL_CSTRING) {
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
-TEST(fstring_view, fsv_from_cstr_NULL) {
+TEST(fstring_view, fsv_from_cstr_NULL_OR_EMPTY) {
     const char *cstr = nullptr;
     fsv_t sv = fsv_from_cstr(cstr);
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
-}
 
-TEST(fstring_view, fsv_from_cstr_EMPTY_STRING) {
-    const char *cstr = "";
-    fsv_t sv = fsv_from_cstr(cstr);
+    cstr = "";
+    sv = fsv_from_cstr(cstr);
     EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr));
 }
 
@@ -335,7 +333,7 @@ TEST(fstring_view, fsv_starts_or_ends_with_FROM_EMPTY_STRING_WITH_EMPTY_STRING) 
     EXPECT_TRUE(fsv_ends_with_cstr(sv, needle, true));
 }
 
-TEST(fstring_view, fsv_starts_or_ends_with_FROM_NULLWITH_NULL) {
+TEST(fstring_view, fsv_starts_or_ends_with_FROM_NULL_WITH_NULL) {
     fsv_t sv = fsv_from_cstr(nullptr);
     const char *needle = nullptr;
 
@@ -817,6 +815,265 @@ TEST(ftemp_buffer, fsv_tmp_strdup) {
     char *ret = fsv_tmp_strdup(cstr);
     EXPECT_EQ(fsv_tmp_save_point() - save_point - 1, strlen(cstr));
     EXPECT_STREQ(ret, cstr);
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+}
+
+TEST(ftemp_buffer, fsv_tmp_sv_to_cstr_NORMAL) {
+    size_t save_point = fsv_tmp_save_point();
+    const char *cstr  = "The quick brown fox jumps over the lazy dog";
+    fsv_t sv          = fsv_from_cstr(cstr);
+
+    char *ret = fsv_tmp_sv_to_cstr(sv);
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(cstr) + 1);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ret));
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+}
+
+TEST(ftemp_buffer, fsv_tmp_sv_to_cstr_BUFFER_REACH_CAPACITY) {
+    const char *cstr  = "The quick brown fox jumps over the lazy dog";
+    fsv_tmp_size      = FSV_TMP_CAPACITY - strlen(cstr) - 2;
+    fsv_t sv          = fsv_from_cstr(cstr);
+    size_t save_point = fsv_tmp_save_point();
+
+    char *ret = fsv_tmp_sv_to_cstr(sv);
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(cstr) + 1);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ret));
+
+    fsv_tmp_reset();
+}
+
+TEST(ftemp_buffer, fsv_tmp_sv_to_cstr_NULL_OR_EMPTY_STRING) {
+    size_t save_point = fsv_tmp_save_point();
+    const char *cstr  = nullptr;
+    fsv_t sv          = fsv_from_cstr(cstr);
+
+    char *ret = fsv_tmp_sv_to_cstr(sv);
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ret));
+
+    cstr = "";
+    sv = fsv_from_cstr(cstr);
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ret));
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_cstr_NORMAL) {
+    size_t save_point = fsv_tmp_save_point();
+    const char *cstr1  = "The quick brown fox jumps";
+    const char *cstr2  = " over the lazy dog";
+    const char *merge  = "The quick brown fox jumps over the lazy dog";
+
+    fsv_t sv = fsv_tmp_concat_cstr(fsv_from_cstr(cstr1), cstr2);
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(merge));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_cstr_REPEATED_CONCAT) {
+    size_t save_point   = fsv_tmp_save_point();
+    const char *cstr    = nullptr;
+    const char *ex_cstr = nullptr;
+    fsv_t sv            = {};
+    size_t buf_len      = 0;
+
+    cstr = "The ";
+    ex_cstr = "The ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "quick ";
+    ex_cstr = "The quick ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "brown ";
+    ex_cstr = "The quick brown ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "fox ";
+    ex_cstr = "The quick brown fox ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "jumps ";
+    ex_cstr = "The quick brown fox jumps ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "over ";
+    ex_cstr = "The quick brown fox jumps over ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "the ";
+    ex_cstr = "The quick brown fox jumps over the ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "lazy ";
+    ex_cstr = "The quick brown fox jumps over the lazy ";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "dog";
+    ex_cstr = "The quick brown fox jumps over the lazy dog";
+    buf_len += strlen(ex_cstr);
+    sv = fsv_tmp_concat_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, buf_len);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_cstr_BUFFER_REACH_CAPACITY) {
+    const char *cstr1  = "The quick brown fox jumps";
+    const char *cstr2  = " over the lazy dog";
+    const char *merge  = "The quick brown fox jumps over the lazy dog";
+    fsv_tmp_size = FSV_TMP_CAPACITY - strlen(merge) - 1;
+    size_t save_point = fsv_tmp_save_point();
+
+    fsv_t sv = fsv_tmp_concat_cstr(fsv_from_cstr(cstr1), cstr2);
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(merge));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    fsv_tmp_reset();
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_cstr_NULL) {
+    const char *cstr1  = nullptr;
+    const char *merge  = "The quick brown fox jumps over the lazy dog";
+    size_t save_point = fsv_tmp_save_point();
+
+    fsv_t sv = fsv_tmp_concat(fsv_from_cstr(cstr1), fsv_from_cstr(merge));
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(merge));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+
+    sv = fsv_tmp_concat(fsv_from_cstr(merge), fsv_from_cstr(cstr1));
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point() - save_point, strlen(merge));
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    fsv_tmp_rewind(save_point);
+    EXPECT_EQ(fsv_tmp_size, save_point);
+
+    sv = fsv_tmp_concat(fsv_from_cstr(cstr1), fsv_from_cstr(cstr1));
+    EXPECT_EQ(sv.length, 0);
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr1));
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_continuous_cstr_NORMAL) {
+    size_t save_point = fsv_tmp_save_point();
+    const char *cstr1  = "The quick brown fox jumps";
+    const char *cstr2  = " over the lazy dog";
+    const char *merge  = "The quick brown fox jumps over the lazy dog";
+
+    fsv_t sv = fsv_tmp_concat_continuous_cstr(fsv_from_cstr(cstr1), cstr2);
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_continuous_NULL) {
+    const char *cstr1  = nullptr;
+    const char *merge  = "The quick brown fox jumps over the lazy dog";
+    size_t save_point = fsv_tmp_save_point();
+
+    fsv_t sv = fsv_tmp_concat_continuous(fsv_from_cstr(cstr1), fsv_from_cstr(merge));
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    sv = fsv_tmp_concat_continuous(fsv_from_cstr(merge), fsv_from_cstr(cstr1));
+    EXPECT_EQ(sv.length, strlen(merge));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, merge));
+
+    sv = fsv_tmp_concat_continuous(fsv_from_cstr(cstr1), fsv_from_cstr(cstr1));
+    EXPECT_EQ(sv.length, 0);
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, cstr1));
+}
+
+TEST(ftemp_buffer, fsv_tmp_concat_continuous_cstr_REPEATED_CONCAT) {
+    size_t save_point   = fsv_tmp_save_point();
+    const char *cstr    = nullptr;
+    const char *ex_cstr = nullptr;
+    fsv_t sv            = {};
+
+    cstr = "The quick ";
+    ex_cstr = "The quick ";
+    sv = fsv_tmp_concat_continuous_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "brown ";
+    ex_cstr = "The quick brown ";
+    sv = fsv_tmp_concat_continuous_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "fox ";
+    ex_cstr = "The quick brown fox ";
+    sv = fsv_tmp_concat_continuous_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "jumps over the lazy ";
+    ex_cstr = "The quick brown fox jumps over the lazy ";
+    sv = fsv_tmp_concat_continuous_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
+
+    cstr = "dog";
+    ex_cstr = "The quick brown fox jumps over the lazy dog";
+    sv = fsv_tmp_concat_continuous_cstr(sv, cstr);
+    EXPECT_EQ(sv.length, strlen(ex_cstr));
+    EXPECT_EQ(fsv_tmp_save_point(), save_point);
+    EXPECT_TRUE(fexpect_sv_eq_cstr(sv, ex_cstr));
 
     fsv_tmp_rewind(save_point);
     EXPECT_EQ(fsv_tmp_size, save_point);
