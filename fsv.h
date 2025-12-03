@@ -201,11 +201,15 @@ typedef enum {
     FSV_LOG_ERROR
 } fsv_log_level_t;
 
-void fsv_log(const fsv_log_level_t level, const char *msg, ...) FSV_PRINTF_FORMAT(2, 3);
+void fsv_log(
+        const char *file, int line,
+        const fsv_log_level_t level,
+        const char *msg, ...
+) FSV_PRINTF_FORMAT(4, 5);
 
 #ifdef FSV_ENABLE_DEBUG
-#    define FSV_LOGI(msg, ...) fsv_log(FSV_LOG_INFO, msg, ##__VA_ARGS__)
-#    define FSV_LOGE(msg, ...) fsv_log(FSV_LOG_ERROR, msg, ##__VA_ARGS__)
+#    define FSV_LOGI(msg, ...) fsv_log(__FILE__, __LINE__, FSV_LOG_INFO, msg, ##__VA_ARGS__)
+#    define FSV_LOGE(msg, ...) fsv_log(__FILE__, __LINE__, FSV_LOG_ERROR, msg, ##__VA_ARGS__)
 #else
 #    define FSV_LOGI(msg, ...)
 #    define FSV_LOGE(msg, ...)
@@ -701,30 +705,49 @@ fsv_t fsv_tmp_concat_continuous_cstr(fsv_t sv1, const char *str) {
 #endif // FSV_DISABLE_TMP_BUFFER
 ///////////////////////// End of Temporary Buffer /////////////////////////
 
-void fsv_log(const fsv_log_level_t level, const char *msg, ...) {
-    FILE *output  = NULL;
-    va_list arg   = {};
-    char *buffer  = fsv_tmp_buffer + fsv_tmp_save_point();
-    int length = 0;
+void fsv_log(const char *file, int line, const fsv_log_level_t level, const char *msg, ...) {
+    FILE *output   = NULL;
+    va_list arg    = {};
+    int msg_length = 0;
 
     if (level == FSV_LOG_INFO) output = stdout;
     else if (level == FSV_LOG_ERROR) output = stderr;
     FSV_ASSERT(output != NULL);
 
     va_start(arg, msg);
-    length = FSV_TMP_CAPACITY - vsnprintf(NULL, 0, msg, arg) - 1;
-    //                                     [  msg length  ]
-    // [-------------->--------------------<--------------]
-    // [  user alloc  ]
-    FSV_ASSERT(0 < length && length < (int)FSV_TMP_CAPACITY);
-    FSV_ASSERT(length > (int)fsv_tmp_save_point());
+    msg_length = vsnprintf(NULL, 0, msg, arg);
     va_end(arg);
 
-    va_start(arg, msg);
-    vsnprintf(buffer + length, length, msg, arg);
-    va_end(arg);
+    if ((int)fsv_tmp_save_point() < FSV_TMP_CAPACITY - msg_length - 1) {
+        /*                                     [  msg_length  ]
+         * [---------------->------------------<--------------]
+         * [ tmp_save_point ]
+         */
+        char *buffer = fsv_tmp_buffer + (FSV_TMP_CAPACITY - msg_length - 1);
+        va_start(arg, msg);
+        vsnprintf(buffer, msg_length + 1, msg, arg);
+        va_end(arg);
 
-    fprintf(output, "%s\n", buffer);
+        buffer[msg_length] = '\0';
+        fprintf(output, "%s:%d: %s\n", file, line, buffer);
+    } else {
+        /*               [           msg_length               ]
+         * [-------------<-->---------------------------------]
+         * [ tmp_save_point ]
+         */
+        fsb_t sb = {};
+        fda_reserve(&sb, (size_t)(msg_length + 1));
+        FSV_ASSERT(sb.datas != NULL);
+
+        va_start(arg, msg);
+        vsnprintf(sb.datas, msg_length + 1, msg, arg);
+        va_end(arg);
+
+        sb.datas[msg_length] = '\0';
+        fprintf(output, "%s:%d: %s\n", file, line, sb.datas);
+
+        fsb_free(&sb);
+    }
 }
 
 #endif // FSV_IMPLEMENTATION
