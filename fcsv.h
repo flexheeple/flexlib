@@ -6,7 +6,10 @@
 typedef struct fcsv_row {
     union { size_t size;  size_t length; };
     size_t capacity;
-    fsv_t *datas;
+    union {
+        fsv_t *datas;
+        fsv_t *columns;
+    };
 } fcsv_row_t;
 
 typedef struct fcsv {
@@ -31,17 +34,17 @@ bool fcsv_get_next_row(fcsv_t *csv, fcsv_row_t *out);
 
 int main(void) {
     fcsv_t csv = {0};
-    const char *file_path = "../fcsv-parser/cashew.csv";
+    const char *file_path = "path/to/csv/file";
     if (!fcsv_open(&csv, file_path, true)) return 1;
 
     // `fcsv_open` will parse the first line and the rewind back to
     // the beginning of the file. So if you want to skip the header,
-    // you need to call `fcsv_get_next_row`
-    fcsv_row_t column;
-    while (fcsv_get_next_row(&csv, &column)) {
-        for (size_t i = 0; i < column.size; ++i) {
-            if (column.datas[i].length != 0 && column.datas[i].datas != NULL) {
-                fprintf(stdout, fsv_fmt ", ", fsv_arg(column.datas[i]));
+    // you need to call `fcsv_get_next_row` once.
+    fcsv_row_t row = {};
+    while (fcsv_get_next_row(&csv, &row)) {
+        for (size_t i = 0; i < row.size; ++i) {
+            if (row.columns[i].length != 0 && row.columns[i].datas != NULL) {
+                fprintf(stdout, fsv_fmt ", ", fsv_arg(row.columns[i]));
             } else {
                 fprintf(stdout, "(null), ");
             }
