@@ -272,7 +272,7 @@ size_t fsv_strlen(const char *string) {
     const char *str = string;
     if (str == NULL) return 0;
     while (*str != '\0') str++;
-    return str - string;
+    return (size_t) (str - string);
 }
 
 char fsv_lower(char c) {
@@ -460,7 +460,7 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
         goto result;
     }
 
-    fda_reserve(sb, sb->length + file_size);
+    fda_reserve(sb, sb->length + file_size + 1);
     byte_read = fread(sb->datas + sb->length, 1, file_size, file);
     FSV_ASSERT(byte_read == (size_t)file_size);
     if (ferror(file)) {
@@ -469,6 +469,7 @@ bool fsb_read_entire_file(const char *file_path, fsb_t *sb) {
         goto result;
     }
     sb->length += file_size;
+    sb->datas[sb->length] = '\0';
 
 result:
     if (file != NULL) fclose(file);
