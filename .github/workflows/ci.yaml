@@ -1,0 +1,105 @@
+name: CI
+on: [ push, pull_request ]
+
+jobs:
+  build-linux-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # - name: Update repository
+      #   run: sudo apt-get -qq update
+
+      # - name: Install dependencies
+      #   run: sudo apt-get -qq install clang cmake -y
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
+          -S unit_tests
+
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        run: ./unit_tests/build/fsv_unit_test
+
+  build-linux-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # - name: Update repository
+      #   run: sudo apt-get -qq update
+
+      # - name: Install dependencies
+      #   run: sudo apt-get -qq install clang cmake -y
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER=clang
+          -S unit_tests
+
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        run: ./unit_tests/build/fsv_unit_test
+
+  build-window-msvc:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER=clang
+          -S unit_tests
+
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        run: unit_tests\build\fsv_unit_test.exe
+
+  build-macos-gcc:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
+          -S unit_tests
+
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        run: unit_tests\build\fsv_unit_test.exe
+
+  build-macos-clang:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER=clang
+          -S unit_tests
+
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        run: unit_tests\build\fsv_unit_test.exe
