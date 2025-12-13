@@ -74,7 +74,7 @@ jobs:
         working-directory: unit_tests/build
         run: ctest --output-on-failure
 
-  build-window-msvc:
+  build-windows-msvc:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -84,6 +84,27 @@ jobs:
           cmake -B unit_tests\build
           -DCMAKE_CXX_COMPILER=cl
           -DCMAKE_C_COMPILER=cl
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests\build
+
+      - name: Run Test
+        working-directory: unit_tests\build
+        run: ctest --output-on-failure
+
+  build-windows-mingw:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MinGW
+        uses: egor-tensin/setup-mingw@v2
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests\build
+          -DCMAKE_CXX_COMPILER=gcc
+          -DCMAKE_C_COMPILER=g++
           -S unit_tests
       - name: Build
         run: cmake --build unit_tests\build
