@@ -3,13 +3,8 @@ cmake_minimum_required(VERSION 3.14)
 project(Flexheeple_Unit_Tests)
 
 # GoogleTest requires at least C++17
-if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
-set(CMAKE_C_STANDARD 23)
-set(CMAKE_CXX_STANDARD 23)
-else()
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-endif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" OR CMAKE_C_COMPILER_ID STREQUAL "MSVC")
 
 include(FetchContent)
 FetchContent_Declare(
