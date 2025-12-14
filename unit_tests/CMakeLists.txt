@@ -17,13 +17,19 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 enable_testing()
-set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -Wall -Wextra")
-set(CMAKE_C_FLAGS_DEBUG     "-ggdb3")
-set(CMAKE_C_FLAGS_RELEASE   "-O3")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
-set(CMAKE_CXX_FLAGS_DEBUG   "-ggdb3")
-set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+if (NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra")
+    set(CMAKE_C_FLAGS_DEBUG "-ggdb3")
+    set(CMAKE_C_FLAGS_RELEASE "-O3")
+endif(NOT CMAKE_C_COMPILER_ID STREQUAL "MSVC")
+
+if (NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS_DEBUG "-ggdb3")
+    set(CMAKE_CXX_FLAGS_RELEASE "-O3")
+endif(NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+
 add_executable(fsv_unit_test fsv_unit_test.cpp)
 target_link_libraries(
     fsv_unit_test

@@ -1,0 +1,112 @@
+name: CI
+on: [ push, pull_request ]
+
+jobs:
+  build-linux-gcc:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        working-directory: unit_tests/build
+        run: ctest
+
+  build-linux-clang:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER=clang
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        working-directory: unit_tests/build
+        run: ctest --output-on-failure
+
+  build-macos-gcc:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        working-directory: unit_tests/build
+        run: ctest --output-on-failure
+
+  build-macos-clang:
+    runs-on: macOS-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests/build
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_C_COMPILER=clang
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests/build
+
+      - name: Run Test
+        working-directory: unit_tests/build
+        run: ctest --output-on-failure
+
+  # build-windows-msvc:
+  #   runs-on: windows-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
+
+  #     - name: Configure CMake
+  #       run: >
+  #         cmake -B unit_tests\build
+  #         -DCMAKE_CXX_COMPILER=cl
+  #         -DCMAKE_C_COMPILER=cl
+  #         -S unit_tests
+  #     - name: Build
+  #       run: cmake --build unit_tests\build
+
+  #     - name: Run Test
+  #       working-directory: unit_tests\build
+  #       run: ctest --output-on-failure
+
+  build-windows-mingw:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: >
+          cmake -B unit_tests\build
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
+          -G "MinGW Makefiles"
+          -S unit_tests
+      - name: Build
+        run: cmake --build unit_tests\build
+
+      - name: Run Test
+        working-directory: unit_tests\build
+        run: ctest --output-on-failure

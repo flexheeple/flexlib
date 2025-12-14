@@ -757,7 +757,9 @@ TEST(fstring_builder, MACRO_fda_reserve) {
 
 TEST(fstring_builder, fsb_read_entire_file_TEST) {
     fsb_t sb = {};
-    const char *file_path = "fsv.h";
+    // The test is ran in `build` folder under `unit_tests` folder
+    // So this is relative to `build` folder
+    const char *file_path = "../../fsv.h";
 
     EXPECT_TRUE(fsb_read_entire_file(file_path, &sb));
     EXPECT_NE(sb.length, 0);
@@ -772,7 +774,7 @@ TEST(fstring_builder, fsb_read_entire_file_TEST) {
 
 TEST(fstring_builder, fsb_read_entire_dir_TEST) {
     ffp_t fp = {};
-    const char *file_path = ".";
+    const char *file_path = "../../";
 
     EXPECT_TRUE(fsb_read_entire_dir(file_path, &fp, false));
     EXPECT_NE(fp.size, 0);
