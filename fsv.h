@@ -49,11 +49,11 @@
 #    define FSV_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
 #endif
 
-#if defined(_MSC_VER)
-#    define FSV_TYPE_OF(var) __typeof__((var))
-#else
+#if defined(_MSC_VER) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
 #    define FSV_TYPE_OF(var) decltype((var))
-#endif // defined(_MSC_VER)
+#else
+#    define FSV_TYPE_OF(var) typeof((var))
+#endif // defined(_MSC_VER) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
 
 ///////////////////////// String View /////////////////////////
 
@@ -138,7 +138,7 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
         if ((da)->capacity >= (cap)) { break; }                                                              \
         (da)->datas = (FSV_TYPE_OF(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
         FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                               \
-        (da)->capacity = (cap);                                                                              \
+        (da)->capacity = (cap);                                                                             \
     } while (0)
 #endif // fda_reserve
 
