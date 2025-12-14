@@ -267,11 +267,11 @@ FSV_DEF fsv_t fsv_trim_right(fsv_t sv) {
 }
 
 FSV_DEF int fsv_index_of(fsv_t sv, char c) {
-    int index = 0;
+    size_t index = 0;
     while (index < sv.length && sv.datas[index] != c) {
         index++;
     }
-    if (index < sv.length) return index;
+    if (index < sv.length) return (int)index;
     return -1;
 }
 
@@ -561,8 +561,7 @@ result:
 const char *fsv_tmp_get_last_errmsg() {
     DWORD err = GetLastError();
     LPSTR msg_buffer = NULL;
-    DWORD size = FormatMessage(
-            FORMAT_MESSAGE_ALLOCATE_BUFFER
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER
             | FORMAT_MESSAGE_FROM_SYSTEM
             | FORMAT_MESSAGE_IGNORE_INSERTS,
             NULL,
@@ -571,7 +570,6 @@ const char *fsv_tmp_get_last_errmsg() {
             msg_buffer,
             0,
             NULL);
-
     const char *ret = fsv_tmp_strdup(msg_buffer);
     LocalFree(msg_buffer);
     return ret;
@@ -596,7 +594,8 @@ bool fsb_read_entire_dir_windows(const char *parent, ffp_t *children, bool recur
     }
 
     do {
-        curr_ent = fsv_tmp_concat_continuous_cstr(root, "/");
+        fsv_tmp_rewind(save_point);
+        curr_ent = fsv_tmp_concat_continuous_cstr(root, "\\");
         curr_ent = fsv_tmp_concat_cstr(curr_ent, fd.cFileName);
         if (fsv_ends_with_cstr(curr_ent, ".", false)
             || fsv_ends_with_cstr(curr_ent, "..", false)) {
