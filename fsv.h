@@ -94,14 +94,14 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #define FSB_INITIAL_CAPACITY (2)
 
 #ifndef fda_realloc
-#define fda_realloc(da, item_added)                                                                                  \
-    do {                                                                                                             \
-        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                          \
-        while ((da)->size + (item_added) > (da)->capacity) {                                                         \
-            (da)->capacity *= 2;                                                                                     \
-        }                                                                                                            \
-        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                       \
+#define fda_realloc(da, item_added)                                                                              \
+    do {                                                                                                         \
+        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                      \
+        while ((da)->size + (item_added) > (da)->capacity) {                                                     \
+            (da)->capacity *= 2;                                                                                 \
+        }                                                                                                        \
+        (da)->datas = (typeof(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                   \
     } while (0)
 #endif // fda_realloc
 
@@ -128,12 +128,12 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #endif // fda_append_many
 
 #ifndef fda_reserve
-#define fda_reserve(da, cap)                                                                                \
-    do {                                                                                                    \
-        if ((da)->capacity >= (cap)) { break; }                                                             \
-        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                              \
-        (da)->capacity = (cap);                                                                             \
+#define fda_reserve(da, cap)                                                                            \
+    do {                                                                                                \
+        if ((da)->capacity >= (cap)) { break; }                                                         \
+        (da)->datas = (typeof(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                          \
+        (da)->capacity = (cap);                                                                         \
     } while (0)
 #endif // fda_reserve
 
@@ -233,9 +233,13 @@ FSV_DEF fsv_t fsv_from_cstr(const char *string) {
 }
 
 FSV_DEF fsv_t fsv_from_partial_cstr(const char *string, const size_t length) {
-    if (length == 0) return (fsv_t) { .length = 0, .datas = NULL };
+    fsv_t ret = {};
+    if (length == 0) return ret;
     size_t len = fsv_strlen(string);
-    return (fsv_t) { .length = length > len ? len : length, .datas = string };
+    ret.length = length > len ? len : length;
+    ret.datas = string;
+
+    return ret;
 }
 
 FSV_DEF fsv_t fsv_from_sv(const fsv_t sv, const size_t length) {
@@ -263,7 +267,7 @@ FSV_DEF fsv_t fsv_trim_right(fsv_t sv) {
 }
 
 FSV_DEF int fsv_index_of(fsv_t sv, char c) {
-    size_t index = 0;
+    int index = 0;
     while (index < sv.length && sv.datas[index] != c) {
         index++;
     }
