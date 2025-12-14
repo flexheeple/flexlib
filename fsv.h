@@ -49,12 +49,6 @@
 #    define FSV_PRINTF_FORMAT(STRING_INDEX, FIRST_TO_CHECK)
 #endif
 
-#if defined(_MSC_VER) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
-#    define FSV_TYPE_OF(var) decltype((var))
-#else
-#    define FSV_TYPE_OF(var) typeof((var))
-#endif // defined(_MSC_VER) && !defined(__llvm__) && !defined(__INTEL_COMPILER)
-
 ///////////////////////// String View /////////////////////////
 
 typedef struct fstring_view {
@@ -99,14 +93,14 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #define FSB_INITIAL_CAPACITY (2)
 
 #ifndef fda_realloc
-#define fda_realloc(da, item_added)                                                                                   \
-    do {                                                                                                              \
-        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                           \
-        while ((da)->size + (item_added) > (da)->capacity) {                                                          \
-            (da)->capacity *= 2;                                                                                      \
-        }                                                                                                             \
-        (da)->datas = (FSV_TYPE_OF(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                        \
+#define fda_realloc(da, item_added)                                                                                  \
+    do {                                                                                                             \
+        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                          \
+        while ((da)->size + (item_added) > (da)->capacity) {                                                         \
+            (da)->capacity *= 2;                                                                                     \
+        }                                                                                                            \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                       \
     } while (0)
 #endif // fda_realloc
 
@@ -133,11 +127,11 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #endif // fda_append_many
 
 #ifndef fda_reserve
-#define fda_reserve(da, cap)                                                                                 \
-    do {                                                                                                     \
-        if ((da)->capacity >= (cap)) { break; }                                                              \
-        (da)->datas = (FSV_TYPE_OF(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                               \
+#define fda_reserve(da, cap)                                                                                \
+    do {                                                                                                    \
+        if ((da)->capacity >= (cap)) { break; }                                                             \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                              \
         (da)->capacity = (cap);                                                                             \
     } while (0)
 #endif // fda_reserve
