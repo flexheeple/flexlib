@@ -94,14 +94,14 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #define FSB_INITIAL_CAPACITY (2)
 
 #ifndef fda_realloc
-#define fda_realloc(da, item_added)                                                                              \
-    do {                                                                                                         \
-        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                      \
-        while ((da)->size + (item_added) > (da)->capacity) {                                                     \
-            (da)->capacity *= 2;                                                                                 \
-        }                                                                                                        \
-        (da)->datas = (typeof(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                   \
+#define fda_realloc(da, item_added)                                                                                  \
+    do {                                                                                                             \
+        if ((da)->capacity == 0) { (da)->capacity = FSB_INITIAL_CAPACITY; }                                          \
+        while ((da)->size + (item_added) > (da)->capacity) {                                                         \
+            (da)->capacity *= 2;                                                                                     \
+        }                                                                                                            \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (da)->capacity * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                                       \
     } while (0)
 #endif // fda_realloc
 
@@ -128,12 +128,12 @@ FSV_DEF bool fsv_split_by_pair(fsv_t *right, const char *pair, fsv_t *middle, fs
 #endif // fda_append_many
 
 #ifndef fda_reserve
-#define fda_reserve(da, cap)                                                                            \
-    do {                                                                                                \
-        if ((da)->capacity >= (cap)) { break; }                                                         \
-        (da)->datas = (typeof(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
-        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                          \
-        (da)->capacity = (cap);                                                                         \
+#define fda_reserve(da, cap)                                                                                \
+    do {                                                                                                    \
+        if ((da)->capacity >= (cap)) { break; }                                                             \
+        (da)->datas = (__typeof__(*((da)->datas))*) FSV_REALLOC((da)->datas, (cap) * sizeof(*(da)->datas)); \
+        FSV_ASSERT((da)->datas != NULL && "Out of Memory!!!");                                              \
+        (da)->capacity = (cap);                                                                             \
     } while (0)
 #endif // fda_reserve
 
@@ -758,9 +758,11 @@ FSV_DEF char *fsv_tmp_sv_to_cstr(fsv_t sv) {
 }
 
 FSV_DEF fsv_t fsv_tmp_concat(fsv_t sv1, fsv_t sv2) {
+    fsv_t ret;
     size_t length = sv1.length + sv2.length;
     char *buffer = (char*) fsv_tmp_alloc(length);
-    fsv_t ret = { .length = length, .datas = buffer };
+    ret.length = length;
+    ret.datas = buffer;
 
     size_t index = 0;
     if (sv1.length > 0 || sv1.datas != NULL) {

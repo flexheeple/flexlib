@@ -100,8 +100,8 @@ jobs:
       - name: Configure CMake
         run: >
           cmake -B unit_tests\build
-          -DCMAKE_CXX_COMPILER=gcc
-          -DCMAKE_C_COMPILER=g++
+          -DCMAKE_CXX_COMPILER=g++
+          -DCMAKE_C_COMPILER=gcc
           -G "MinGW Makefiles"
           -S unit_tests
       - name: Build
