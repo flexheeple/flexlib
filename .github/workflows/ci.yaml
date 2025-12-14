@@ -105,8 +105,8 @@ jobs:
           -G "MinGW Makefiles"
           -S unit_tests
       - name: Build
-        run: cmake --build unit_tests\build -G "MinGW Makefiles"
+        run: cmake --build unit_tests\build
 
       - name: Run Test
         working-directory: unit_tests\build
-        run: ctest --output-on-failure -G "MinGW Makefiles"
+        run: ctest --output-on-failure
